@@ -4,16 +4,7 @@ var Module = typeof Module !== 'undefined' ? Module : {};
         const path = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/')) + '/fs/';
 
         const files = [
-            "/mythroad/opysfx.mrp",
-            "/mythroad/gxqds.mrp",
-            "/mythroad/gyhzb.mrp",
-            "/mythroad/gmhkda.mrp",
             "/mythroad/mpc.mrp",
-            "/mythroad/cjppt.mrp",
-            "/mythroad/opsksc.mrp",
-            "/mythroad/opmtyx.mrp",
-            "/mythroad/txz.mrp",
-            "/mythroad/winmine.mrp",
             "/mythroad/dsm_gm.mrp",
             "/mythroad/ydqtwo.mrp",
             "/mythroad/plugins/netpay.mrp",
