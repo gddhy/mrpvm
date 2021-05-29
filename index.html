@@ -171,7 +171,7 @@
             </div>
         </div>
         <p style="text-align:center"><span style="color: red;">网页无法发短信，所以不可能产生付费，放心使用</span></p>
-        <div style="text-align:center">
+        <div id="mrp_search" style="text-align:center">
             <br/><form action="http://mrp-search.gddhy.net/" method="get">
             <input type="text" name="name"/>
             <input type="submit" value="搜索MRP"/>
@@ -192,6 +192,12 @@
                 target="_blank">https://github.com/zengming00/vmrp</a><br>本软件采用GNU General Public License v3.0开源协议
         </p>
     </div>
+    <script>
+        window.addEventListener('load',function(){
+        if(navigator.userAgent.match(/QQ\//i)) {
+        document.getElementById("mrp_search").style.display = "none";
+        }})
+    </script>
     <script>
         function GetQueryString(name) {
             var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)");
