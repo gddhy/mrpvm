@@ -4,6 +4,7 @@ var Module = typeof Module !== 'undefined' ? Module : {};
         const path = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/')) + '/fs/';
 
         const files = [
+			"/mythroad/mynes.mrp",
             "/mythroad/opysfx.mrp",
             "/mythroad/gxqds.mrp",
             "/mythroad/gyhzb.mrp",
@@ -16,6 +17,8 @@ var Module = typeof Module !== 'undefined' ? Module : {};
             "/mythroad/winmine.mrp",
             "/mythroad/dsm_gm.mrp",
             "/mythroad/ydqtwo.mrp",
+			"/mythroad/nes/tank.nes",
+			"/mythroad/nes/超级玛丽中文.nes",
             "/mythroad/plugins/netpay.mrp",
             "/mythroad/plugins/advbar.mrp",
             "/mythroad/plugins/flaengine.mrp",
@@ -26,6 +29,7 @@ var Module = typeof Module !== 'undefined' ? Module : {};
         ];
         const dirs = [
             "/mythroad",
+			"/mythroad/nes",
             "/mythroad/plugins",
             "/mythroad/plugins/ose",
             "/mythroad/system",
