@@ -237,8 +237,15 @@
                     console.log("error", reader.error);
                 }
                 reader.onload = function () {
-                    FS.writeFile('/mythroad/' + file.name, new Uint8Array(reader.result));
-                    print("写入:'" + file.name + "'完成.");
+					var dir = '';
+					if(file.name.indexOf('.') != -1){
+						var type = file.name.substring(file.name.lastIndexOf('.'));
+						if(type.toLowerCase().indexOf('nes') != -1){
+							dir = 'nes/';
+						}
+					}
+                    FS.writeFile('/mythroad/' + dir + file.name, new Uint8Array(reader.result));
+                    print("写入:'" + dir + file.name + "'完成.");
                 };
                 reader.readAsArrayBuffer(file);
             }
