@@ -106,7 +106,8 @@
             margin: 5px;
             outline: none;
         }
-        #output {
+		
+		#output {
             width: 100%;
             height: 200px;
             margin: 20px auto;
@@ -121,6 +122,7 @@
             outline: none;
         }
     </style>
+    <script src="./midi.js"></script>
 </head>
 
 <body>
@@ -170,7 +172,7 @@
                 <button id="key_pound">#</button>
             </div>
         </div>
-        <p style="text-align:center"><span style="color: red;">网页无法发短信，所以不可能产生付费，放心使用</span></p>
+		<p style="text-align:center"><span style="color: red;">网页无法发短信，所以不可能产生付费，放心使用</span></p>
         <div id="mrp_search" style="text-align:center">
             <br/><form action="http://mrp-search.gddhy.net/" method="get">
             <input type="text" name="name"/>
@@ -185,14 +187,14 @@
         </div>
          <textarea id="output" rows="8"></textarea>
         <p>
-            按键： 0-9对应0-9键<br> 减号对应 * 键<br>
+            按键： 0-9对应0-9键 <br> 减号对应 * 键<br>
             等号对应 # 键<br> 上下左右或wsad控制方向<br> 回车键：确认/选择/ok<br> q键或左中括号：左功能键<br> e键或右中括号:
             右功能键<br> tab键：接听键<br> esc键：挂机键<br> 导入文件后不会刷新列表，你可以先打开一个app然后退出app这样就能刷新到<br>
-            注意！模拟器所有文件都是在内存中，刷新网页将导致恢复初始状态<br> 本软件的开源地址是：<a href="https://github.com/zengming00/vmrp"
+            注意！模拟器所有文件都是在内存中，刷新网页将导致恢复初始状态<br> 支持导入nes文件，使用MyNes模拟器运行<br> 若游戏需要资源包，可以导入zip后用压缩管理器解压<br> MIDI播放采用的是简易的 <a href="https://github.com/chenx/MidiPlayer">MidiPlayer</a> 效果很一般<br><br> 本软件的开源地址是：<a href="https://github.com/zengming00/vmrp"
                 target="_blank">https://github.com/zengming00/vmrp</a><br>本软件采用GNU General Public License v3.0开源协议
         </p>
     </div>
-    <script>
+	<script>
         window.addEventListener('load',function(){
         if(navigator.userAgent.match(/QQ\//i)) {
         document.getElementById("mrp_search").style.display = "none";
@@ -215,17 +217,16 @@
         const importBtn = document.getElementById('import');
         const inputFile = document.getElementById('files');
         const canvas = document.getElementById('canvas');
-        
-        const mrpStoreBtn = document.getElementById('mrpStore');
+		const mrpStoreBtn = document.getElementById('mrpStore');
         const clearLogBtn = document.getElementById('clearLog');
-        clearLogBtn.addEventListener("click", function(ev) {
-             const element = document.getElementById('output');
-             if (element) element.value = '';
-         });
-         mrpStoreBtn.addEventListener("click", function(ev) {
-             window.location.href = "http://mrp.gddhy.net/";
-         });
 
+		clearLogBtn.addEventListener("click", function(ev) {
+            const element = document.getElementById('output');
+            if (element) element.value = '';
+        });
+        mrpStoreBtn.addEventListener("click", function(ev) {
+            window.location.href = "http://mrp.gddhy.net/";
+        });
         importBtn.addEventListener("click", function (ev) {
             inputFile.click();
         });
@@ -246,18 +247,32 @@
 					}
                     FS.writeFile('/mythroad/' + dir + file.name, new Uint8Array(reader.result));
                     print("写入:'" + dir + file.name + "'完成.");
+                    alert("导入:'" + dir + file.name + "'完成.\n导入文件后不会刷新列表，你可以先打开一个app然后退出app这样就能刷新到");
                 };
                 reader.readAsArrayBuffer(file);
             }
         });
 
+        const midi = MidiPlayer();
+        const MR_SOUND_MIDI = 0;
+        const MR_SOUND_WAV = 1;
+        const MR_SOUND_MP3 = 2;
         function js_playSound(type, data, dataLen, loop) {
-            console.log(arguments);
+            if (type == MR_SOUND_MIDI) {
+                const buf = Module.HEAPU8.slice(data, data + dataLen);
+                midi.play(buf.buffer, loop);
+            } else {
+                console.log(arguments);
+            }
             return 0;
         }
 
         function js_stopSound(type) {
-            console.log(arguments);
+            if (type == MR_SOUND_MIDI) {
+                midi.stop();
+            } else {
+                console.log(arguments);
+            }
             return 0;
         }
 
@@ -494,16 +509,14 @@
     <script type='text/javascript'>
         var statusElement = document.getElementById('status');
         var progressElement = document.getElementById('progress');
-        
-        var element = document.getElementById('output');
-        
+		var element = document.getElementById('output');
         function print(text) {
             if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
             console.log(text);
-                if (element) {
-                    element.value += text + "\n";
-                    element.scrollTop = element.scrollHeight; // focus on bottom
-                }
+			if (element) {
+				element.value += text + "\n";
+				element.scrollTop = element.scrollHeight; // focus on bottom
+			}
         }
         function setTitle() {
             const title = GetQueryString('title')
