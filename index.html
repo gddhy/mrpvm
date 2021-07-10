@@ -5,6 +5,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title></title>
+	<script src="https://unpkg.com/vconsole/dist/vconsole.min.js"></script>
+	<script>
+		var vConsole = new window.VConsole();
+	</script>
     <style>
         * {
             user-select: none;
@@ -106,23 +110,8 @@
             margin: 5px;
             outline: none;
         }
-		
-		#output {
-            width: 100%;
-            height: 200px;
-            margin: 20px auto;
-            border-left: 0px;
-            border-right: 0px;
-            padding-left: 0px;
-            padding-right: 0px;
-            display: block;
-            background-color: black;
-            color: white;
-            font-family: 'Lucida Console', Monaco, monospace;
-            outline: none;
-        }
     </style>
-    <script src="./midi.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/gddhy/mrpvm/midi.js"></script>
 </head>
 
 <body>
@@ -183,9 +172,7 @@
             <input type="button" id="mrpStore" value="MRP商店" />
             <input type="file" id="files" multiple style="display:none" />
             <input type="button" id="import" value="导入文件" />
-            <input type="button" id="clearLog" value="清除日志" />
         </div>
-         <textarea id="output" rows="8"></textarea>
         <p>
             按键： 0-9对应0-9键 <br> 减号对应 * 键<br>
             等号对应 # 键<br> 上下左右或wsad控制方向<br> 回车键：确认/选择/ok<br> q键或左中括号：左功能键<br> e键或右中括号:
@@ -218,12 +205,7 @@
         const inputFile = document.getElementById('files');
         const canvas = document.getElementById('canvas');
 		const mrpStoreBtn = document.getElementById('mrpStore');
-        const clearLogBtn = document.getElementById('clearLog');
 
-		clearLogBtn.addEventListener("click", function(ev) {
-            const element = document.getElementById('output');
-            if (element) element.value = '';
-        });
         mrpStoreBtn.addEventListener("click", function(ev) {
             window.location.href = "http://mrp.gddhy.net/";
         });
@@ -509,14 +491,9 @@
     <script type='text/javascript'>
         var statusElement = document.getElementById('status');
         var progressElement = document.getElementById('progress');
-		var element = document.getElementById('output');
         function print(text) {
             if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
             console.log(text);
-			if (element) {
-				element.value += text + "\n";
-				element.scrollTop = element.scrollHeight; // focus on bottom
-			}
         }
         function setTitle() {
             const title = GetQueryString('title')
@@ -582,8 +559,8 @@
             };
         };
     </script>
-    <script src="./fs.js"></script>
-    <script async src="./vmrp.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/gddhy/mrpvm/fs.js"></script>
+    <script async src="https://cdn.jsdelivr.net/gh/gddhy/mrpvm/vmrp.js"></script>
 </body>
 
 </html>
