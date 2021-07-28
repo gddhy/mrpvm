@@ -22,6 +22,7 @@ var Module = typeof Module !== 'undefined' ? Module : {};
 			"/mythroad/plugins/advbar.mrp",
             "/mythroad/plugins/ose/brwcore.mrp",
             "/mythroad/system/gb12.uc2",
+            "/mythroad/system/gb12v2.uc2",
             "/mythroad/system/gb16.uc2",
             "/cfunction.ext",
         ];
