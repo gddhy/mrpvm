@@ -6,9 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title></title>
 	<script src="https://unpkg.com/vconsole/dist/vconsole.min.js"></script>
-	<script>
-		var vConsole = new window.VConsole();
-	</script>
     <style>
         * {
             user-select: none;
@@ -111,7 +108,7 @@
             outline: none;
         }
     </style>
-    <script src="/midi.js"></script>
+    <script src="./midi.js"></script>
 </head>
 
 <body>
@@ -174,7 +171,7 @@
             <input type="button" id="import" value="导入文件" />
         </div>
         <p>
-            按键： 0-9对应0-9键 <br> 减号对应 * 键<br>
+            按键： 0-9对应0-9键<br> 减号对应 * 键<br>
             等号对应 # 键<br> 上下左右或wsad控制方向<br> 回车键：确认/选择/ok<br> q键或左中括号：左功能键<br> e键或右中括号:
             右功能键<br> tab键：接听键<br> esc键：挂机键<br> 导入文件后不会刷新列表，你可以先打开一个app然后退出app这样就能刷新到<br>
             注意！模拟器所有文件都是在内存中，刷新网页将导致恢复初始状态<br> 支持导入nes文件，使用MyNes模拟器运行<br> 若游戏需要资源包，可以导入zip后用压缩管理器解压<br> MIDI播放采用的是简易的 <a href="https://github.com/chenx/MidiPlayer">MidiPlayer</a> 效果很一般<br><br> 本软件的开源地址是：<a href="https://github.com/zengming00/vmrp"
@@ -209,6 +206,7 @@
         mrpStoreBtn.addEventListener("click", function(ev) {
             window.location.href = "http://mrp.gddhy.net/";
         });
+
         importBtn.addEventListener("click", function (ev) {
             inputFile.click();
         });
@@ -553,14 +551,14 @@
         Module.setStatus('下载中...');
         window.onerror = function (event) {
             // TODO: do not warn on ok events like simulating an infinite loop or exitStatus
-            Module.setStatus('模拟器异常，请刷新网页或查看日志');
+            Module.setStatus('模拟器异常，请刷新网页或查看日志 ');
             Module.setStatus = function (text) {
                 if (text) Module.printErr('[post-exception status] ' + text);
             };
         };
     </script>
-    <script src="/mrpvm/fs.js"></script>
-    <script async src="/vmrp.js"></script>
+    <script src="./fs.js"></script>
+    <script async src="./vmrp.js"></script>
 </body>
 
 </html>
