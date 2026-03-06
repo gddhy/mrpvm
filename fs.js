@@ -2,7 +2,7 @@ var Module = typeof Module !== 'undefined' ? Module : {};
 (function () {
     function runWithFS() {
         //const path = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/')) + '/fs/';
-        const path = 'https://testingcf.jsdelivr.net/gh/gddhy/mrpvm/fs/';
+        const path = 'https://gcore.jsdelivr.net/gh/gddhy/mrpvm/fs/';
 
         const dirs = [
             "/mythroad",
