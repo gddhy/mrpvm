@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html>
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MRP模拟器</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title></title>
 	<script src="https://unpkg.com/vconsole/dist/vconsole.min.js"></script>
     <script>
     var vConsole = new window.VConsole();
@@ -12,92 +12,22 @@
     <style>
         * {
             user-select: none;
-            -webkit-tap-highlight-color: transparent;
-            box-sizing: border-box;
-        }
-
-        :root {
-            --bg-1: #0d1117;
-            --bg-2: #161b28;
-            --card-bg: rgba(255, 255, 255, 0.04);
-            --card-border: rgba(255, 255, 255, 0.08);
-            --accent: #58a6ff;
-            --accent-2: #3fb950;
-            --danger: #f85149;
-            --warning: #d29922;
-            --purple: #bc8cff;
-            --text: #e6edf3;
-            --text-dim: #8b949e;
-            --key-bg: #21262d;
-            --key-bg-hover: #30363d;
-            --key-active: #1f6feb;
-            --radius: 12px;
-            --radius-sm: 8px;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-                "Helvetica Neue", Arial, sans-serif;
+            font-family: arial;
             margin: 0;
-            padding: 0;
-            min-height: 100vh;
-            background: radial-gradient(ellipse at top, var(--bg-2), var(--bg-1));
-            color: var(--text);
-            display: flex;
-            justify-content: center;
-            -webkit-font-smoothing: antialiased;
+            padding: none;
         }
 
         #main {
+            margin: auto;
             width: 100%;
-            max-width: 480px;
-            margin: 0;
-            padding: 16px 14px 40px;
+            max-width: 640px;
         }
 
-        /* ---- 状态 / 进度条 ---- */
-        .status-bar {
+        #main>div:first-child {
             text-align: center;
-            margin-bottom: 20px;
-        }
-
-        #status {
-            height: auto;
-            font-weight: 600;
-            color: var(--text-dim);
-            font-size: 13px;
-            margin-bottom: 8px;
-        }
-
-        #progress {
-            height: 5px;
-            width: 100%;
-            max-width: 280px;
-            border: none;
-            border-radius: 3px;
-            background: var(--card-bg);
-            appearance: none;
-            -webkit-appearance: none;
-        }
-        #progress::-webkit-progress-bar {
-            background: rgba(255,255,255,0.06);
-            border-radius: 3px;
-        }
-        #progress::-webkit-progress-value {
-            background: linear-gradient(90deg, var(--accent), var(--purple));
-            border-radius: 3px;
-            transition: width 0.3s ease;
-        }
-        #progress::-moz-progress-bar {
-            background: linear-gradient(90deg, var(--accent), var(--purple));
-            border-radius: 3px;
-        }
-
-        /* ---- 屏幕区域 ---- */
-        .screen-frame {
-            display: flex;
-            justify-content: center;
-            margin-bottom: 24px;
         }
 
         #screen {
@@ -114,12 +44,7 @@
             height: 320px;
             border: 0px none;
             padding: 0;
-            background-color: #000;
-            box-shadow:
-                0 0 0 3px rgba(255,255,255,0.06),
-                0 0 0 4px rgba(0,0,0,0.4),
-                0 10px 50px rgba(0,0,0,0.7),
-                0 0 80px rgba(88,166,255,0.07);
+            background-color: black;
         }
 
         #dialog {
@@ -131,295 +56,79 @@
             margin-left: -120px;
             width: 240px;
             height: 320px;
-            background-color: #1c2128;
-            color: var(--text);
-            overflow: hidden;
+            background-color: white;
             visibility: hidden;
         }
 
         #dialog h1 {
             text-align: center;
             margin: 0;
-            padding: 6px 0;
-            font-size: 0.9em;
-            font-weight: 600;
-            background: rgba(255,255,255,0.06);
-            border-bottom: 1px solid var(--card-border);
-            color: var(--text);
+            font-size: 1em;
+            border: 1px solid black;
+            border-bottom-color: transparent;
         }
 
         #dialog textarea {
             flex: 1;
             width: 100%;
-            border: none;
-            background: #0d1117;
-            color: var(--text);
-            padding: 8px;
-            font-size: 13px;
-            line-height: 1.5;
+            border: 1px solid black;
             box-sizing: border-box;
             overflow: auto;
             outline: none;
             resize: none;
-            user-select: text;
         }
 
         #dialog .control {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            padding: 6px 10px;
-            background: rgba(255,255,255,0.04);
-            border-top: 1px solid var(--card-border);
         }
 
-        #dialog .control button {
-            background: var(--accent);
-            color: #fff;
-            border: none;
-            border-radius: 6px;
-            padding: 5px 18px;
-            font-size: 13px;
-            cursor: pointer;
-            transition: opacity 0.15s;
-        }
-        #dialog .control button:active {
-            opacity: 0.7;
+        #status {
+            height: 1em;
+            font-weight: bold;
+            color: rgb(120, 120, 120);
         }
 
-        #dialogInfo {
-            font-size: 11px;
-            color: var(--text-dim);
+        #progress {
+            height: 20px;
+            width: 300px;
         }
 
-        /* ---- 按键区域 ---- */
         #keymap {
-            max-width: 380px;
-            margin: 0 auto 24px;
+            max-width: 400px;
+            margin: 30px auto;
         }
 
-        #keymap > div {
+        #keymap>div {
             display: flex;
-            justify-content: center;
-            gap: 6px;
-            margin-bottom: 6px;
+            justify-content: space-evenly;
         }
 
-        #keymap > div button {
-            width: 42px;
-            height: 42px;
-            line-height: 42px;
-            text-align: center;
-            font-size: 15px;
-            font-weight: 600;
-            border: 1px solid var(--card-border);
-            border-radius: 50%;
-            background: var(--key-bg);
-            color: var(--text);
+        #keymap>div button {
+            line-height: 40px;
+            width: 40px;
+            margin: 5px;
             outline: none;
-            cursor: pointer;
-            transition: background 0.1s, transform 0.05s;
-            flex-shrink: 0;
-        }
-
-        #keymap > div button:active {
-            background: var(--key-active);
-            transform: scale(0.92);
-        }
-
-        /* 方向键 / 功能键 用不同色调 */
-        #key_up, #key_down, #key_left, #key_right, #key_ok {
-            background: #1c2a3a;
-            border-color: rgba(88,166,255,0.2);
-        }
-        #key_up:active, #key_down:active, #key_left:active, #key_right:active, #key_ok:active {
-            background: var(--accent);
-        }
-        /* 左右软键 */
-        #key_sleft, #key_sright {
-            background: #2a1a2a;
-            border-color: rgba(188,140,255,0.15);
-            font-size: 12px;
-        }
-        #key_sleft:active, #key_sright:active {
-            background: var(--purple);
-        }
-
-        /* ---- 操作按钮 ---- */
-        .action-bar {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 8px;
-            margin-bottom: 20px;
-        }
-
-        .action-bar input[type="button"] {
-            border: 1px solid var(--card-border);
-            border-radius: var(--radius-sm);
-            background: var(--card-bg);
-            color: var(--text);
-            padding: 9px 16px;
-            font-size: 13px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: background 0.15s, border-color 0.15s, transform 0.05s;
-            white-space: nowrap;
-        }
-        .action-bar input[type="button"]:active {
-            transform: scale(0.96);
-        }
-
-        #mrpStore { border-color: rgba(88,166,255,0.25); background: rgba(88,166,255,0.1); color: var(--accent); }
-        #mrpStore:active { background: rgba(88,166,255,0.2); }
-
-        #import { border-color: rgba(63,185,80,0.25); background: rgba(63,185,80,0.1); color: var(--accent-2); }
-        #import:active { background: rgba(63,185,80,0.2); }
-
-        #saveProgress { border-color: rgba(63,185,80,0.25); background: rgba(63,185,80,0.1); color: var(--accent-2); }
-        #saveProgress:active { background: rgba(63,185,80,0.2); }
-
-        #downloadAll { border-color: rgba(188,140,255,0.25); background: rgba(188,140,255,0.1); color: var(--purple); }
-        #downloadAll:active { background: rgba(188,140,255,0.2); }
-
-        #clearSaves { border-color: rgba(248,81,73,0.25); background: rgba(248,81,73,0.1); color: var(--danger); }
-        #clearSaves:active { background: rgba(248,81,73,0.2); }
-
-        /* ---- 搜索栏 ---- */
-        .search-bar {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        .search-bar form {
-            display: inline-flex;
-            gap: 6px;
-            align-items: center;
-        }
-        .search-bar input[type="text"] {
-            background: var(--card-bg);
-            border: 1px solid var(--card-border);
-            border-radius: var(--radius-sm);
-            color: var(--text);
-            padding: 8px 14px;
-            font-size: 13px;
-            outline: none;
-            user-select: text;
-            transition: border-color 0.15s;
-        }
-        .search-bar input[type="text"]:focus {
-            border-color: var(--accent);
-        }
-        .search-bar input[type="submit"] {
-            background: var(--accent);
-            color: #fff;
-            border: none;
-            border-radius: var(--radius-sm);
-            padding: 8px 16px;
-            font-size: 13px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: opacity 0.15s;
-        }
-        .search-bar input[type="submit"]:active {
-            opacity: 0.8;
-        }
-
-        /* ---- 提示 ---- */
-        .notice {
-            text-align: center;
-            color: var(--warning);
-            font-size: 12px;
-            margin: 0 0 16px;
-        }
-
-        /* ---- 帮助 / 说明 ---- */
-        .help-section {
-            background: var(--card-bg);
-            border: 1px solid var(--card-border);
-            border-radius: var(--radius);
-            padding: 0;
-            overflow: hidden;
-        }
-        .help-section summary {
-            padding: 12px 16px;
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--text-dim);
-            cursor: pointer;
-            list-style: none;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: background 0.15s;
-        }
-        .help-section summary::-webkit-details-marker { display: none; }
-        .help-section summary::before {
-            content: "▶";
-            font-size: 10px;
-            transition: transform 0.2s;
-        }
-        .help-section[open] summary::before {
-            transform: rotate(90deg);
-        }
-        .help-section summary:hover {
-            background: rgba(255,255,255,0.03);
-        }
-        .help-section .help-content {
-            padding: 4px 16px 16px;
-            font-size: 12.5px;
-            line-height: 1.8;
-            color: var(--text-dim);
-            user-select: text;
-        }
-        .help-section .help-content a {
-            color: var(--accent);
-            text-decoration: none;
-        }
-        .help-section .help-content a:hover {
-            text-decoration: underline;
-        }
-
-        /* ---- 响应式 ---- */
-        @media (max-width: 380px) {
-            #keymap > div button {
-                width: 38px;
-                height: 38px;
-                line-height: 38px;
-                font-size: 14px;
-            }
-            #keymap > div { gap: 4px; }
-            .action-bar input[type="button"] {
-                padding: 8px 12px;
-                font-size: 12px;
-            }
-        }
-
-        @media (min-width: 600px) {
-            #main {
-                padding: 24px 20px 48px;
-            }
         }
     </style>
-    <script src="https://testingcf.jsdelivr.net/gh/gddhy/mrpvm/midi.js"></script>
+    <script src="./midi.js"></script>
 </head>
 
 <body>
     <div id="main">
-        <div class="status-bar">
+        <div>
             <div id="status">下载中...</div>
             <progress value="0" max="100" id="progress"></progress>
         </div>
-        <div class="screen-frame">
-            <div id="screen">
-                <canvas id="canvas" oncontextmenu="event.preventDefault()" tabindex=-1></canvas>
-                <div id="dialog">
-                    <h1>标题</h1>
-                    <textarea></textarea>
-                    <div class="control">
-                        <button id="dialogOk">确定</button>
-                        <span id="dialogInfo">0/0</span>
-                        <button id="dialogCancel">取消</button>
-                    </div>
+        <div id="screen">
+            <canvas id="canvas" oncontextmenu="event.preventDefault()" tabindex=-1></canvas>
+            <div id="dialog">
+                <h1>标题</h1>
+                <textarea></textarea>
+                <div class="control">
+                    <button id="dialogOk">确定</button>
+                    <span id="dialogInfo">0/0</span>
+                    <button id="dialogCancel">取消</button>
                 </div>
             </div>
         </div>
@@ -452,14 +161,14 @@
                 <button id="key_pound">#</button>
             </div>
         </div>
-        <p class="notice">网页无法发短信，所以不可能产生付费，放心使用</p>
-        <div id="mrp_search" class="search-bar">
-            <form action="https://mrp-search.gddhy.net/" method="get">
+		<p style="text-align:center"><span style="color: red;">网页无法发短信，所以不可能产生付费，放心使用</span></p>
+        <div id="mrp_search" style="text-align:center">
+            <br/><form action="https://mrp-search.gddhy.net/" method="get">
             <input type="text" name="name"/>
             <input type="submit" value="搜索MRP"/>
-            </form>
+            </form><br/>
         </div>
-        <div class="action-bar">
+        <div style="text-align:center">
             <input type="button" id="mrpStore" value="MRP商店" />
             <input type="file" id="files" multiple style="display:none" />
             <input type="button" id="import" value="导入文件" />
@@ -467,24 +176,16 @@
             <input type="button" id="clearSaves" value="清除存档" />
             <input type="button" id="downloadAll" value="下载文件" />
         </div>
-        <details class="help-section">
-            <summary>使用帮助 &amp; 说明</summary>
-            <div class="help-content">
-                按键：0-9 对应 0-9 键<br>
-                减号对应 * 键，等号对应 # 键<br>
-                上下左右或 WASD 控制方向<br>
-                回车键：确认 / 选择 / OK<br>
-                Q 键或左中括号：左功能键<br>
-                E 键或右中括号：右功能键<br>
-                Tab 键：接听键，ESC 键：挂机键<br>
-                导入文件后不会刷新列表，可以先打开一个 app 然后退出 app 刷新<br><br>
-                <strong style="color:var(--accent-2)">存档功能：</strong>游戏进度会自动保存到浏览器本地存储，下次打开网页时自动恢复。也可点击"保存进度"手动保存，点击"清除存档"清除所有存档。<br><br>
-                支持导入 NES 文件，使用 MyNes 模拟器运行。若游戏需要资源包，可以导入 zip 后用压缩管理器解压。<br>
-                MIDI 播放采用的是简易的 <a href="https://github.com/chenx/MidiPlayer">MidiPlayer</a>，效果很一般。<br><br>
-                开源地址：<a href="https://github.com/zengming00/vmrp" target="_blank">https://github.com/zengming00/vmrp</a><br>
-                采用 GNU General Public License v3.0 开源协议
-            </div>
-        </details>
+        <p>
+            按键： 0-9对应0-9键<br> 减号对应 * 键<br>
+            等号对应 # 键<br> 上下左右或wsad控制方向<br> 回车键：确认/选择/ok<br> q键或左中括号：左功能键<br> e键或右中括号:
+            右功能键<br> tab键：接听键<br> esc键：挂机键<br> 导入文件后不会刷新列表，你可以先打开一个app然后退出app这样就能刷新到<br>
+            注意！模拟器文件在内存中运行，但游戏进度会自动保存到浏览器本地存储<br>
+            下次打开网页时会自动恢复上次的游戏进度<br>
+            也可以点击"保存进度"按钮手动保存，点击"清除存档"按钮清除所有存档<br>
+            支持导入nes文件，使用MyNes模拟器运行<br> 若游戏需要资源包，可以导入zip后用压缩管理器解压<br> MIDI播放采用的是简易的 <a href="https://github.com/chenx/MidiPlayer">MidiPlayer</a> 效果很一般<br><br> 本软件的开源地址是：<a href="https://github.com/zengming00/vmrp"
+                target="_blank">https://github.com/zengming00/vmrp</a><br>本软件采用GNU General Public License v3.0开源协议
+        </p>
     </div>
 	<script>
         window.addEventListener('load',function(){
@@ -762,7 +463,7 @@
             if (str.length > max_size) {
                 dialogInfo.style.color = 'red';
             } else {
-                dialogInfo.style.color = '';
+                dialogInfo.style.color = 'black';
             }
         }
 
@@ -905,7 +606,7 @@
         };
     </script>
     <script src="./fs.js"></script>
-    <script async src="https://gcore.jsdelivr.net/gh/gddhy/mrpvm/vmrp.js"></script>
+    <script async src="./vmrp.js"></script>
 </body>
 
 </html>
