@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MRP模拟器</title>
+    <!-- PWA meta -->
+    <meta name="theme-color" content="#161b28">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="MRP模拟器">
+    <link rel="manifest" href="./manifest.json">
+    <link rel="icon" type="image/png" sizes="192x192" href="./icon.png">
+    <link rel="apple-touch-icon" href="./icon.png">
+	<script src="https://unpkg.com/vconsole/dist/vconsole.min.js"></script>
+    <script>
+    var vConsole = new window.VConsole();
+    </script>
+    <style>
+        * {
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-1: #0d1117;
+            --bg-2: #161b28;
+            --card-bg: rgba(255, 255, 255, 0.04);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --accent: #58a6ff;
+            --accent-2: #3fb950;
+            --danger: #f85149;
+            --warning: #d29922;
+            --purple: #bc8cff;
+            --text: #e6edf3;
+            --text-dim: #8b949e;
+            --key-bg: #21262d;
+            --key-bg-hover: #30363d;
+            --key-active: #1f6feb;
+            --radius: 12px;
+            --radius-sm: 8px;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            background: radial-gradient(ellipse at top, var(--bg-2), var(--bg-1));
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        #main {
+            width: 100%;
+            max-width: 480px;
+            margin: 0;
+            padding: 16px 14px 40px;
+        }
+
+        /* ---- 状态 / 进度条 ---- */
+        .status-bar {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        #status {
+            height: auto;
+            font-weight: 600;
+            color: var(--text-dim);
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+
+        #progress {
+            height: 5px;
+            width: 100%;
+            max-width: 280px;
+            border: none;
+            border-radius: 3px;
+            background: var(--card-bg);
+            appearance: none;
+            -webkit-appearance: none;
+        }
+        #progress::-webkit-progress-bar {
+            background: rgba(255,255,255,0.06);
+            border-radius: 3px;
+        }
+        #progress::-webkit-progress-value {
+            background: linear-gradient(90deg, var(--accent), var(--purple));
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+        #progress::-moz-progress-bar {
+            background: linear-gradient(90deg, var(--accent), var(--purple));
+            border-radius: 3px;
+        }
+
+        /* ---- 屏幕区域 ---- */
+        .screen-frame {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 24px;
+        }
+
+        #screen {
+            position: relative;
+        }
+
+        #canvas {
+            /* the canvas *must not* have any border or padding, or mouse coords will be wrong */
+            position: relative;
+            display: block;
+            left: 50%;
+            margin-left: -120px;
+            width: 240px;
+            height: 320px;
+            border: 0px none;
+            padding: 0;
+            background-color: #000;
+            box-shadow:
+                0 0 0 3px rgba(255,255,255,0.06),
+                0 0 0 4px rgba(0,0,0,0.4),
+                0 10px 50px rgba(0,0,0,0.7),
+                0 0 80px rgba(88,166,255,0.07);
+        }
+
+        #dialog {
+            display: flex;
+            flex-direction: column;
+            position: absolute;
+            top: 0;
+            left: 50%;
+            margin-left: -120px;
+            width: 240px;
+            height: 320px;
+            background-color: #1c2128;
+            color: var(--text);
+            overflow: hidden;
+            visibility: hidden;
+        }
+
+        #dialog h1 {
+            text-align: center;
+            margin: 0;
+            padding: 6px 0;
+            font-size: 0.9em;
+            font-weight: 600;
+            background: rgba(255,255,255,0.06);
+            border-bottom: 1px solid var(--card-border);
+            color: var(--text);
+        }
+
+        #dialog textarea {
+            flex: 1;
+            width: 100%;
+            border: none;
+            background: #0d1117;
+            color: var(--text);
+            padding: 8px;
+            font-size: 13px;
+            line-height: 1.5;
+            box-sizing: border-box;
+            overflow: auto;
+            outline: none;
+            resize: none;
+            user-select: text;
+        }
+
+        #dialog .control {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 10px;
+            background: rgba(255,255,255,0.04);
+            border-top: 1px solid var(--card-border);
+        }
+
+        #dialog .control button {
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 5px 18px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: opacity 0.15s;
+        }
+        #dialog .control button:active {
+            opacity: 0.7;
+        }
+
+        #dialogInfo {
+            font-size: 11px;
+            color: var(--text-dim);
+        }
+
+        /* ---- 按键区域 ---- */
+        #keymap {
+            max-width: 380px;
+            margin: 0 auto 24px;
+        }
+
+        #keymap > div {
+            display: flex;
+            justify-content: center;
+            gap: 6px;
+            margin-bottom: 6px;
+        }
+
+        #keymap > div button {
+            width: 42px;
+            height: 42px;
+            line-height: 42px;
+            text-align: center;
+            font-size: 15px;
+            font-weight: 600;
+            border: 1px solid var(--card-border);
+            border-radius: 50%;
+            background: var(--key-bg);
+            color: var(--text);
+            outline: none;
+            cursor: pointer;
+            transition: background 0.1s, transform 0.05s;
+            flex-shrink: 0;
+        }
+
+        #keymap > div button:active {
+            background: var(--key-active);
+            transform: scale(0.92);
+        }
+
+        /* 方向键 / 功能键 用不同色调 */
+        #key_up, #key_down, #key_left, #key_right, #key_ok {
+            background: #1c2a3a;
+            border-color: rgba(88,166,255,0.2);
+        }
+        #key_up:active, #key_down:active, #key_left:active, #key_right:active, #key_ok:active {
+            background: var(--accent);
+        }
+        /* 左右软键 */
+        #key_sleft, #key_sright {
+            background: #2a1a2a;
+            border-color: rgba(188,140,255,0.15);
+            font-size: 12px;
+        }
+        #key_sleft:active, #key_sright:active {
+            background: var(--purple);
+        }
+
+        /* ---- 操作按钮 ---- */
+        .action-bar {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .action-bar input[type="button"] {
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-sm);
+            background: var(--card-bg);
+            color: var(--text);
+            padding: 9px 16px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s, transform 0.05s;
+            white-space: nowrap;
+        }
+        .action-bar input[type="button"]:active {
+            transform: scale(0.96);
+        }
+
+        #mrpStore { border-color: rgba(88,166,255,0.25); background: rgba(88,166,255,0.1); color: var(--accent); }
+        #mrpStore:active { background: rgba(88,166,255,0.2); }
+
+        #import { border-color: rgba(63,185,80,0.25); background: rgba(63,185,80,0.1); color: var(--accent-2); }
+        #import:active { background: rgba(63,185,80,0.2); }
+
+        #saveProgress { border-color: rgba(63,185,80,0.25); background: rgba(63,185,80,0.1); color: var(--accent-2); }
+        #saveProgress:active { background: rgba(63,185,80,0.2); }
+
+        #downloadAll { border-color: rgba(188,140,255,0.25); background: rgba(188,140,255,0.1); color: var(--purple); }
+        #downloadAll:active { background: rgba(188,140,255,0.2); }
+
+        #clearSaves { border-color: rgba(248,81,73,0.25); background: rgba(248,81,73,0.1); color: var(--danger); }
+        #clearSaves:active { background: rgba(248,81,73,0.2); }
+
+        #fsaFolder { border-color: rgba(210,153,34,0.25); background: rgba(210,153,34,0.1); color: var(--warning); }
+        #fsaFolder:active { background: rgba(210,153,34,0.2); }
+
+        /* ---- 搜索栏 ---- */
+        .search-bar {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .search-bar form {
+            display: inline-flex;
+            gap: 6px;
+            align-items: center;
+        }
+        .search-bar input[type="text"] {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-sm);
+            color: var(--text);
+            padding: 8px 14px;
+            font-size: 13px;
+            outline: none;
+            user-select: text;
+            transition: border-color 0.15s;
+        }
+        .search-bar input[type="text"]:focus {
+            border-color: var(--accent);
+        }
+        .search-bar input[type="submit"] {
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: var(--radius-sm);
+            padding: 8px 16px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: opacity 0.15s;
+        }
+        .search-bar input[type="submit"]:active {
+            opacity: 0.8;
+        }
+
+        /* ---- 提示 ---- */
+        .notice {
+            text-align: center;
+            color: var(--warning);
+            font-size: 12px;
+            margin: 0 0 16px;
+        }
+
+        /* ---- 帮助 / 说明 ---- */
+        .help-section {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius);
+            padding: 0;
+            overflow: hidden;
+        }
+        .help-section summary {
+            padding: 12px 16px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-dim);
+            cursor: pointer;
+            list-style: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.15s;
+        }
+        .help-section summary::-webkit-details-marker { display: none; }
+        .help-section summary::before {
+            content: "▶";
+            font-size: 10px;
+            transition: transform 0.2s;
+        }
+        .help-section[open] summary::before {
+            transform: rotate(90deg);
+        }
+        .help-section summary:hover {
+            background: rgba(255,255,255,0.03);
+        }
+        .help-section .help-content {
+            padding: 4px 16px 16px;
+            font-size: 12.5px;
+            line-height: 1.8;
+            color: var(--text-dim);
+            user-select: text;
+        }
+        .help-section .help-content a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+        .help-section .help-content a:hover {
+            text-decoration: underline;
+        }
+
+        /* ---- 响应式 ---- */
+        @media (max-width: 380px) {
+            #keymap > div button {
+                width: 38px;
+                height: 38px;
+                line-height: 38px;
+                font-size: 14px;
+            }
+            #keymap > div { gap: 4px; }
+            .action-bar input[type="button"] {
+                padding: 8px 12px;
+                font-size: 12px;
+            }
+        }
+
+        @media (min-width: 600px) {
+            #main {
+                padding: 24px 20px 48px;
+            }
+        }
+    </style>
+    <script src="./midi.js"></script>
+</head>
+
+<body>
+    <div id="main">
+        <div class="status-bar">
+            <div id="status">下载中...</div>
+            <progress value="0" max="100" id="progress"></progress>
+        </div>
+        <div class="screen-frame">
+            <div id="screen">
+                <canvas id="canvas" oncontextmenu="event.preventDefault()" tabindex=-1></canvas>
+                <div id="dialog">
+                    <h1>标题</h1>
+                    <textarea></textarea>
+                    <div class="control">
+                        <button id="dialogOk">确定</button>
+                        <span id="dialogInfo">0/0</span>
+                        <button id="dialogCancel">取消</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="keymap">
+            <div>
+                <button id="key_sleft">=</button>
+                <button id="key_up">↑</button>
+                <button id="key_sright">=</button>
+                <button id="key_1">1</button>
+                <button id="key_2">2</button>
+                <button id="key_3">3</button>
+                <button id="key_star">*</button>
+            </div>
+            <div>
+                <button id="key_left">←</button>
+                <button id="key_ok">ok</button>
+                <button id="key_right">→</button>
+                <button id="key_4">4</button>
+                <button id="key_5">5</button>
+                <button id="key_6">6</button>
+                <button id="key_0">0</button>
+            </div>
+            <div>
+                <button style="visibility: hidden;"></button>
+                <button id="key_down">↓</button>
+                <button style="visibility: hidden;"></button>
+                <button id="key_7">7</button>
+                <button id="key_8">8</button>
+                <button id="key_9">9</button>
+                <button id="key_pound">#</button>
+            </div>
+        </div>
+        <p class="notice">网页无法发短信，所以不可能产生付费，放心使用</p>
+        <div id="mrp_search" class="search-bar">
+            <form action="https://mrp-search.gddhy.net/" method="get">
+            <input type="text" name="name"/>
+            <input type="submit" value="搜索MRP"/>
+            </form>
+        </div>
+        <div class="action-bar">
+            <input type="button" id="mrpStore" value="MRP商店" />
+            <input type="file" id="files" multiple style="display:none" />
+            <input type="button" id="import" value="导入文件" />
+            <input type="button" id="saveProgress" value="保存进度" />
+            <input type="button" id="clearSaves" value="清除存档" />
+            <input type="button" id="downloadAll" value="下载文件" />
+            <input type="button" id="fsaFolder" value="本地文件夹" style="display:none" />
+        </div>
+        <details class="help-section">
+            <summary>使用帮助 &amp; 说明</summary>
+            <div class="help-content">
+                按键：0-9 对应 0-9 键<br>
+                减号对应 * 键，等号对应 # 键<br>
+                上下左右或 WASD 控制方向<br>
+                回车键：确认 / 选择 / OK<br>
+                Q 键或左中括号：左功能键<br>
+                E 键或右中括号：右功能键<br>
+                Tab 键：接听键，ESC 键：挂机键<br>
+                导入文件后不会刷新列表，可以先打开一个 app 然后退出 app 刷新<br><br>
+                <strong style="color:var(--accent-2)">存档功能：</strong>游戏进度会自动保存，下次打开网页时自动恢复。也可点击"保存进度"手动保存，点击"清除存档"清除所有存档。<br>
+                <strong style="color:var(--warning)">本地文件夹：</strong>在 Chrome、Edge 等 Chromium 内核浏览器中，首次使用会提示选择本地文件夹。授权后文件会同时保存到本地文件夹和浏览器存储（双重备份）。如遇浏览器权限过期，可点击"本地文件夹"按钮重新连接。<br><br>
+                支持导入 NES 文件，使用 MyNes 模拟器运行。若游戏需要资源包，可以导入 zip 后用压缩管理器解压。<br>
+                MIDI 播放采用的是简易的 <a href="https://github.com/chenx/MidiPlayer">MidiPlayer</a>，效果很一般。<br><br>
+                开源地址：<a href="https://github.com/zengming00/vmrp" target="_blank">https://github.com/zengming00/vmrp</a><br>
+                采用 GNU General Public License v3.0 开源协议
+            </div>
+        </details>
+    </div>
+	<script>
+        window.addEventListener('load',function(){
+        if(navigator.userAgent.match(/QQ\//i)) {
+        document.getElementById("mrp_search").style.display = "none";
+        }})
+    </script>
+    <script>
+        function GetQueryString(name) {
+            var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)");
+            var r = window.location.search.substr(1).match(reg);
+            if (r != null) return decodeURI(r[2]);
+            return null;
+        }
+
+        const dialog = document.getElementById('dialog');
+        const dialogTextarea = document.querySelector('#dialog textarea');
+        const dialogTitle = document.querySelector('#dialog h1');
+        const dialogOkBtn = document.getElementById('dialogOk');
+        const dialogCancelBtn = document.getElementById('dialogCancel');
+        const dialogInfo = document.getElementById('dialogInfo');
+        const importBtn = document.getElementById('import');
+        const inputFile = document.getElementById('files');
+        const canvas = document.getElementById('canvas');
+		const mrpStoreBtn = document.getElementById('mrpStore');
+
+        mrpStoreBtn.addEventListener("click", function(ev) {
+            window.location.href = "http://mrp.gddhy.net/";
+        });
+
+        importBtn.addEventListener("click", function (ev) {
+            inputFile.click();
+        });
+        inputFile.addEventListener('change', function (ev) {
+            for (const file of inputFile.files) {
+                console.log(file);
+                const reader = new FileReader();
+                reader.onerror = function () {
+                    console.log("error", reader.error);
+                }
+                reader.onload = function () {
+					var dir = '';
+					if(file.name.indexOf('.') != -1){
+						var type = file.name.substring(file.name.lastIndexOf('.'));
+						if(type.toLowerCase().indexOf('nes') != -1){
+							dir = 'nes/';
+						}
+					}
+                    FS.writeFile('/mythroad/' + dir + file.name, new Uint8Array(reader.result));
+                    print("写入:'" + dir + file.name + "'完成.");
+                    alert("导入:'" + dir + file.name + "'完成.\n导入文件后不会刷新列表，你可以先打开一个app然后退出app这样就能刷新到");
+                };
+                reader.readAsArrayBuffer(file);
+            }
+        });
+
+        // ---- 存档功能按钮 ----
+        var saveProgressBtn = document.getElementById('saveProgress');
+        var clearSavesBtn = document.getElementById('clearSaves');
+
+        saveProgressBtn.addEventListener("click", function (ev) {
+            if (typeof FS === 'undefined') {
+                alert('模拟器尚未加载完成，请稍后再试');
+                return;
+            }
+            if (window.vmrpSaveAll) {
+                var count = window.vmrpSaveAll();
+                var info = window.vmrpGetSaveInfo ? window.vmrpGetSaveInfo() : null;
+                var sizeStr = info ? ' (' + Math.round(info.sizeBytes / 1024) + 'KB)' : '';
+                var storageName = info && info.storageType ? info.storageType : '浏览器本地存储';
+                alert('游戏进度已保存到' + storageName + '\n共 ' + count + ' 个文件' + sizeStr);
+            }
+        });
+
+        clearSavesBtn.addEventListener("click", function (ev) {
+            if (!confirm('确定要清除所有本地存档吗？\n清除后游戏进度将无法恢复，下次打开网页将恢复初始状态。')) {
+                return;
+            }
+            if (window.vmrpClearSaves) {
+                var count = window.vmrpClearSaves();
+                alert('已清除 ' + count + ' 个本地存档文件，请刷新网页以从服务器重新加载初始文件。');
+            }
+        });
+
+        // ---- 下载文件按钮 ----
+        var downloadAllBtn = document.getElementById('downloadAll');
+        downloadAllBtn.addEventListener("click", function (ev) {
+            if (typeof FS === 'undefined') {
+                alert('模拟器尚未加载完成，请稍后再试');
+                return;
+            }
+            if (window.vmrpDownloadAll) {
+                window.vmrpDownloadAll();
+            }
+        });
+
+        // ---- 本地文件夹按钮 (File System Access API) ----
+        var fsaFolderBtn = document.getElementById('fsaFolder');
+        if (window.showDirectoryPicker) {
+            fsaFolderBtn.style.display = '';
+        }
+        fsaFolderBtn.addEventListener("click", function (ev) {
+            var status = window.vmrpFsaStatus ? window.vmrpFsaStatus() : null;
+            if (status && status.active) {
+                // 已连接, 询问是否更换或断开
+                var choice = confirm('当前已连接文件夹: ' + status.dirName + '\n\n点击"确定"更换文件夹\n点击"取消"保留当前设置');
+                if (choice && window.vmrpFsaSelectFolder) {
+                    window.vmrpFsaSelectFolder().then(function (ok) {
+                        if (ok) {
+                            var s = window.vmrpFsaStatus();
+                            alert('已更换文件夹: ' + s.dirName + '\n游戏进度将同步到此文件夹');
+                            fsaFolderBtn.value = '文件夹: ' + s.dirName;
+                        }
+                    });
+                }
+            } else {
+                // 未连接, 选择文件夹
+                if (window.vmrpFsaSelectFolder) {
+                    window.vmrpFsaSelectFolder().then(function (ok) {
+                        if (ok) {
+                            var s = window.vmrpFsaStatus();
+                            alert('已选择文件夹: ' + s.dirName + '\n游戏进度将同步到此文件夹');
+                            fsaFolderBtn.value = '文件夹: ' + s.dirName;
+                        }
+                    });
+                }
+            }
+        });
+
+        // 页面加载后更新按钮文字
+        if (window.vmrpFsaReady) {
+            window.vmrpFsaReady.then(function () {
+                var s = window.vmrpFsaStatus ? window.vmrpFsaStatus() : null;
+                if (s && s.active) {
+                    fsaFolderBtn.value = '文件夹: ' + s.dirName;
+                }
+            });
+        }
+
+        const midi = MidiPlayer();
+        const MR_SOUND_MIDI = 0;
+        const MR_SOUND_WAV = 1;
+        const MR_SOUND_MP3 = 2;
+        function js_playSound(type, data, dataLen, loop) {
+            if (type == MR_SOUND_MIDI) {
+                const buf = Module.HEAPU8.slice(data, data + dataLen);
+                midi.play(buf.buffer, loop);
+            } else {
+                console.log(arguments);
+            }
+            return 0;
+        }
+
+        function js_stopSound(type) {
+            if (type == MR_SOUND_MIDI) {
+                midi.stop();
+            } else {
+                console.log(arguments);
+            }
+            return 0;
+        }
+
+        let shakef = 0;
+        let shakeStartTime = 0;
+
+        function js_startShake(ms) {
+            shakeStartTime = Date.now();
+            shakef = setInterval(() => {
+                if (Date.now() - shakeStartTime >= ms) {
+                    js_stopShake();
+                    return;
+                }
+                if (canvas.style.marginLeft === '-121px') {
+                    canvas.style.marginLeft = '-119px';
+                } else {
+                    canvas.style.marginLeft = '-121px';
+                }
+            }, 1);
+            return 0;
+        }
+
+        function js_stopShake() {
+            if (shakef) {
+                clearInterval(shakef);
+                shakef = 0;
+                canvas.style.marginLeft = '-120px';
+            }
+            return 0;
+        }
+
+        const MR_DIALOG_EVENT = 6;
+        const MR_DIALOG_KEY_OK = 0; // 对话框/文本框等的"确定"键被点击(选择);
+        const MR_DIALOG_KEY_CANCEL = 1; // 对话框/文本框等的"取消"("返回")键被点击(选择);
+        const MR_DIALOG_OK = 0; // 对话框有"确定"键;
+        const MR_DIALOG_OK_CANCEL = 1; // 对话框有"确定" "取消"键;
+        const MR_DIALOG_CANCEL = 2; // 对话框有"返回"键
+        const MR_EDIT_ANY = 0;
+        const MR_EDIT_NUMERIC = 1;
+        const MR_EDIT_PASSWORD = 2;
+
+        function dialogRelease() {
+            dialog.style.visibility = 'hidden';
+            dialogOkBtn.style.visibility = 'hidden';
+            dialogCancelBtn.style.visibility = 'hidden';
+            dialogOkBtn.onclick = null;
+            dialogCancelBtn.onclick = null;
+            Module._setEventEnable(true);
+        }
+
+        function dialogCreate(title, text, keyType, editAble, editType, max_size) {
+            Module._setEventEnable(false);
+            dialog.style.visibility = 'visible';
+            dialogTitle.innerText = getUnicodeStr(title);
+            dialogTextarea.value = getUnicodeStr(text);
+            dialogTextarea.scrollTop = 0;
+            dialogTextarea.readOnly = !editAble;
+            if (dialogTextarea.readOnly) {
+                dialogInfo.innerText = '';
+            }
+            if (keyType == MR_DIALOG_OK_CANCEL || keyType == MR_DIALOG_OK) {
+                dialogOkBtn.style.visibility = 'visible';
+                dialogOkBtn.onclick = function (e) {
+                    if (editAble && getDialogText().length > max_size) {
+                        return;
+                    }
+                    dialogTextarea.readOnly = true;
+                    Module._c_event(MR_DIALOG_EVENT, MR_DIALOG_KEY_OK, 0);
+                }
+            }
+            if (keyType == MR_DIALOG_OK_CANCEL || keyType == MR_DIALOG_CANCEL) {
+                dialogCancelBtn.style.visibility = 'visible';
+                dialogCancelBtn.onclick = function (e) {
+                    Module._c_event(MR_DIALOG_EVENT, MR_DIALOG_KEY_CANCEL, 0);
+                }
+            }
+            dialogTextarea.oninput = function (e) {
+                if (editType == MR_EDIT_NUMERIC) {
+                    // todo
+                }
+                if (editAble) {
+                    updateDialogInfo(max_size);
+                }
+            };
+            if (editAble) {
+                updateDialogInfo(max_size);
+            }
+        }
+
+        function js_dialogCreate(title, text, type) {
+            dialogCreate(title, text, type, false, 0, 0);
+            return 1234;
+        }
+
+        function js_dialogRelease(dialog) {
+            dialogRelease();
+            return 0;
+        }
+
+        function js_dialogRefresh(dialog, title, text, keyType) {
+            dialogTitle.innerText = getUnicodeStr(title);
+            dialogTextarea.value = getUnicodeStr(text);
+            if (keyType == -1) return 0;
+            dialogOkBtn.style.visibility = 'hidden';
+            dialogCancelBtn.style.visibility = 'hidden';
+            dialogOkBtn.onclick = null;
+            dialogCancelBtn.onclick = null;
+            if (keyType == MR_DIALOG_OK_CANCEL || keyType == MR_DIALOG_OK) {
+                dialogOkBtn.style.visibility = 'visible';
+                dialogOkBtn.onclick = function (e) {
+                    Module._c_event(MR_DIALOG_EVENT, MR_DIALOG_KEY_OK, 0);
+                }
+            }
+            if (keyType == MR_DIALOG_OK_CANCEL || keyType == MR_DIALOG_CANCEL) {
+                dialogCancelBtn.style.visibility = 'visible';
+                dialogCancelBtn.onclick = function (e) {
+                    Module._c_event(MR_DIALOG_EVENT, MR_DIALOG_KEY_CANCEL, 0);
+                }
+            }
+            return 0;
+        }
+
+        function js_textCreate(title, text, type) {
+            dialogCreate(title, text, type, false, 0, 0);
+            return 1234;
+        }
+
+        function js_textRelease(handle) {
+            dialogRelease();
+            return 0;
+        }
+
+        function js_textRefresh(handle, title, text) {
+            dialogTitle.innerText = getUnicodeStr(title);
+            dialogTextarea.value = getUnicodeStr(text);
+            return 0;
+        }
+
+        function getUnicodeStr(p) {
+            let i = p / 2;
+            const arr = [];
+            while (Module.HEAPU16[i]) {
+                const v = Module.HEAPU16[i];
+                arr.push(String.fromCharCode((v >> 8 | v << 8) & 0xffff));
+                i++;
+            }
+            return arr.join('');
+        }
+
+        function getDialogText() {
+            let str = dialogTextarea.value;
+            str = str.replace(/\r\n/g, '\n');
+            str = str.replace(/\n/g, '\r\n');
+            return str;
+        }
+
+        function updateDialogInfo(max_size) {
+            const str = getDialogText();
+            dialogInfo.innerText = str.length + '/' + max_size;
+            if (str.length > max_size) {
+                dialogInfo.style.color = 'red';
+            } else {
+                dialogInfo.style.color = '';
+            }
+        }
+
+        function js_editCreate(title, text, type, max_size) {
+            dialogCreate(title, text, MR_DIALOG_OK_CANCEL, true, type, max_size);
+            return 1234;
+        }
+
+        function js_editRelease(edit) {
+            dialogRelease();
+            return 0;
+        }
+
+        let holdTextMem = 0;
+
+        function js_editGetText(edit) {
+            const str = getDialogText();
+            const len = str.length + 1;
+            if (holdTextMem != 0) {
+                Module._my_freeExt(holdTextMem);
+            }
+            holdTextMem = Module._my_mallocExt(len * 2);
+            if (holdTextMem != 0) {
+                let ptr = holdTextMem;
+                for (let a = 0; a < str.length; a++) {
+                    const v = str.charCodeAt(a);
+                    Module.HEAPU8[ptr++] = (v >> 8) & 0xff;
+                    Module.HEAPU8[ptr++] = v & 0xff;
+                }
+                Module.HEAPU8[ptr++] = 0;
+                Module.HEAPU8[ptr] = 0;
+            }
+            return holdTextMem;
+        }
+
+        function touch_add(id, code) {
+            const key = document.getElementById(id);
+            key.onmousedown = function (e) {
+                Module._c_event(0, code, 0);
+                e.preventDefault();
+            }
+            key.onmouseup = function (e) {
+                Module._c_event(1, code, 0);
+                e.preventDefault();
+            }
+            key.ontouchstart = key.onmousedown;
+            key.ontouchend = key.onmouseup;
+        }
+        touch_add("key_0", 0);
+        touch_add("key_1", 1);
+        touch_add("key_2", 2);
+        touch_add("key_3", 3);
+        touch_add("key_4", 4);
+        touch_add("key_5", 5);
+        touch_add("key_6", 6);
+        touch_add("key_7", 7);
+        touch_add("key_8", 8);
+        touch_add("key_9", 9);
+        touch_add("key_star", 10);
+        touch_add("key_pound", 11);
+        touch_add("key_up", 12);
+        touch_add("key_down", 13);
+        touch_add("key_left", 14);
+        touch_add("key_right", 15);
+        touch_add("key_sleft", 17);
+        touch_add("key_sright", 18);
+        touch_add("key_ok", 20);
+
+    </script>
+
+    <script type='text/javascript'>
+        var statusElement = document.getElementById('status');
+        var progressElement = document.getElementById('progress');
+        function print(text) {
+            if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
+            console.log(text);
+        }
+        function setTitle() {
+            const title = GetQueryString('title')
+            if (title) {
+                document.title = title;
+            }
+        }
+
+        var Module = {
+            preRun: [],
+            postRun: [setTitle],
+            print: print,
+            printErr: function (text) {
+                if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
+                console.error(text);
+            },
+            canvas: (function () {
+                var canvas = document.getElementById('canvas');
+
+                // As a default initial behavior, pop up an alert when webgl context is lost. To make your
+                // application robust, you may want to override this behavior before shipping!
+                // See http://www.khronos.org/registry/webgl/specs/latest/1.0/#5.15.2
+                canvas.addEventListener("webglcontextlost", function (e) {
+                    alert('WebGL context lost. You will need to reload the page.');
+                    e.preventDefault();
+                }, false);
+
+                return canvas;
+            })(),
+            setStatus: function (text) {
+                if (!Module.setStatus.last) Module.setStatus.last = {
+                    time: Date.now(),
+                    text: ''
+                };
+                if (text === Module.setStatus.last.text) return;
+                var m = text.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/);
+                var now = Date.now();
+                if (m && now - Module.setStatus.last.time < 30) return; // if this is a progress update, skip it if too soon
+                Module.setStatus.last.time = now;
+                Module.setStatus.last.text = text;
+                if (m) {
+                    text = m[1];
+                    progressElement.value = parseInt(m[2]) * 100;
+                    progressElement.max = parseInt(m[4]) * 100;
+                    progressElement.style.visibility = 'visible';
+                } else {
+                    progressElement.style.visibility = 'hidden';
+                }
+                statusElement.innerHTML = text;
+            },
+            totalDependencies: 0,
+            monitorRunDependencies: function (left) {
+                this.totalDependencies = Math.max(this.totalDependencies, left);
+                Module.setStatus(left ? '准备中... (' + (this.totalDependencies - left) + '/' + this.totalDependencies + ')' : '下载完成');
+            }
+        };
+        Module.setStatus('下载中...');
+        window.onerror = function (event) {
+            // TODO: do not warn on ok events like simulating an infinite loop or exitStatus
+            Module.setStatus('模拟器异常，请刷新网页或查看日志 ');
+            Module.setStatus = function (text) {
+                if (text) Module.printErr('[post-exception status] ' + text);
+            };
+        };
+    </script>
+    <script src="./fs.js"></script>
+    <script async src="./vmrp.js"></script>
+    <!-- Service Worker 注册 -->
+    <script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+            navigator.serviceWorker.register('./sw.js').then(function (reg) {
+                console.log('[vmrp-pwa] Service Worker 注册成功, scope: ' + reg.scope);
+            }).catch(function (err) {
+                console.warn('[vmrp-pwa] Service Worker 注册失败: ' + err.message);
+            });
+        });
+    }
+    </script>
+</body>
+
+</html>
