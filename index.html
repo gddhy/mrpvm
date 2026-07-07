@@ -5,6 +5,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>MRP模拟器</title>
+    <!-- PWA meta -->
+    <meta name="theme-color" content="#161b28">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="MRP模拟器">
+    <link rel="manifest" href="./manifest.json">
+    <link rel="icon" type="image/png" sizes="192x192" href="./icon.png">
+    <link rel="apple-touch-icon" href="./icon.png">
 	<script src="https://unpkg.com/vconsole/dist/vconsole.min.js"></script>
     <script>
     var vConsole = new window.VConsole();
@@ -285,6 +293,7 @@
         #clearSaves { border-color: rgba(248,81,73,0.25); background: rgba(248,81,73,0.1); color: var(--danger); }
         #clearSaves:active { background: rgba(248,81,73,0.2); }
 
+
         /* ---- 搜索栏 ---- */
         .search-bar {
             text-align: center;
@@ -400,7 +409,7 @@
             }
         }
     </style>
-    <script src="https://testingcf.jsdelivr.net/gh/gddhy/mrpvm/midi.js"></script>
+    <script src="./midi.js"></script>
 </head>
 
 <body>
@@ -478,7 +487,7 @@
                 E 键或右中括号：右功能键<br>
                 Tab 键：接听键，ESC 键：挂机键<br>
                 导入文件后不会刷新列表，可以先打开一个 app 然后退出 app 刷新<br><br>
-                <strong style="color:var(--accent-2)">存档功能：</strong>游戏进度会自动保存到浏览器本地存储，下次打开网页时自动恢复。也可点击"保存进度"手动保存，点击"清除存档"清除所有存档。<br><br>
+                <strong style="color:var(--accent-2)">存档功能：</strong>游戏进度会自动保存到 IndexedDB（无容量限制），下次打开网页时自动恢复。也可点击"保存进度"手动保存，点击"清除存档"清除所有存档。<br><br>
                 支持导入 NES 文件，使用 MyNes 模拟器运行。若游戏需要资源包，可以导入 zip 后用压缩管理器解压。<br>
                 MIDI 播放采用的是简易的 <a href="https://github.com/chenx/MidiPlayer">MidiPlayer</a>，效果很一般。<br><br>
                 开源地址：<a href="https://github.com/zengming00/vmrp" target="_blank">https://github.com/zengming00/vmrp</a><br>
@@ -551,10 +560,17 @@
                 return;
             }
             if (window.vmrpSaveAll) {
-                var count = window.vmrpSaveAll();
-                var info = window.vmrpGetSaveInfo ? window.vmrpGetSaveInfo() : null;
-                var sizeStr = info ? ' (' + Math.round(info.sizeBytes / 1024) + 'KB)' : '';
-                alert('游戏进度已保存到浏览器本地存储\n共 ' + count + ' 个文件' + sizeStr);
+                window.vmrpSaveAll().then(function (count) {
+                    if (window.vmrpGetSaveInfo) {
+                        window.vmrpGetSaveInfo().then(function (info) {
+                            var sizeStr = ' (' + Math.round(info.sizeBytes / 1024) + 'KB)';
+                            var storageName = info.storageType || 'IndexedDB';
+                            alert('游戏进度已保存到' + storageName + '\n共 ' + count + ' 个文件' + sizeStr);
+                        });
+                    } else {
+                        alert('游戏进度已保存\n共 ' + count + ' 个文件');
+                    }
+                });
             }
         });
 
@@ -563,8 +579,9 @@
                 return;
             }
             if (window.vmrpClearSaves) {
-                var count = window.vmrpClearSaves();
-                alert('已清除 ' + count + ' 个本地存档文件，请刷新网页以从服务器重新加载初始文件。');
+                window.vmrpClearSaves().then(function (count) {
+                    alert('已清除 ' + count + ' 个本地存档文件，请刷新网页以从服务器重新加载初始文件。');
+                });
             }
         });
 
@@ -905,7 +922,19 @@
         };
     </script>
     <script src="./fs.js"></script>
-    <script async src="https://gcore.jsdelivr.net/gh/gddhy/mrpvm/vmrp.js"></script>
+    <script async src="./vmrp.js"></script>
+    <!-- Service Worker 注册 -->
+    <script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+            navigator.serviceWorker.register('./sw.js').then(function (reg) {
+                console.log('[vmrp-pwa] Service Worker 注册成功, scope: ' + reg.scope);
+            }).catch(function (err) {
+                console.warn('[vmrp-pwa] Service Worker 注册失败: ' + err.message);
+            });
+        });
+    }
+    </script>
 </body>
 
 </html>
