@@ -13,9 +13,18 @@
     <link rel="manifest" href="./manifest.json">
     <link rel="icon" type="image/png" sizes="192x192" href="./icon.png">
     <link rel="apple-touch-icon" href="./icon.png">
-	<script src="https://unpkg.com/vconsole/dist/vconsole.min.js"></script>
+    <!-- vConsole 调试工具 (异步加载, 失败不影响页面) -->
     <script>
-    var vConsole = new window.VConsole();
+    (function () {
+        var s = document.createElement('script');
+        s.src = 'https://unpkg.com/vconsole/dist/vconsole.min.js';
+        s.async = true;
+        s.onload = function () {
+            if (window.VConsole) { try { new window.VConsole(); } catch (e) {} }
+        };
+        s.onerror = function () { /* CDN 不可用时静默跳过 */ };
+        document.head.appendChild(s);
+    })();
     </script>
     <style>
         * {
@@ -928,9 +937,22 @@
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', function () {
             navigator.serviceWorker.register('./sw.js').then(function (reg) {
-                console.log('[vmrp-pwa] Service Worker 注册成功, scope: ' + reg.scope);
+                console.log('[vmrp-pwa] SW 注册成功, scope: ' + reg.scope);
+
+                // 检测 SW 更新
+                reg.addEventListener('updatefound', function () {
+                    var newWorker = reg.installing;
+                    if (!newWorker) return;
+                    newWorker.addEventListener('statechange', function () {
+                        if (newWorker.state === 'activated' && navigator.serviceWorker.controller) {
+                            // 新 SW 已激活, 刷新页面加载新缓存
+                            console.log('[vmrp-pwa] SW 已更新, 刷新页面');
+                            window.location.reload();
+                        }
+                    });
+                });
             }).catch(function (err) {
-                console.warn('[vmrp-pwa] Service Worker 注册失败: ' + err.message);
+                console.warn('[vmrp-pwa] SW 注册失败: ' + err.message);
             });
         });
     }
