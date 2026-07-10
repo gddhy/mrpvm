@@ -417,6 +417,38 @@
                 padding: 24px 20px 48px;
             }
         }
+
+        /* 竖屏: canvas 横向拉伸至容器宽度, 竖向等比缩放 */
+        @media (orientation: portrait) {
+            #screen {
+                width: 100%;
+            }
+
+            #canvas {
+                width: 100%;
+                height: auto;
+                aspect-ratio: 240 / 320;
+                left: 0;
+                margin-left: 0;
+            }
+
+            #dialog {
+                width: auto;
+                height: auto;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                margin-left: 0;
+            }
+        }
+
+        /* 手机竖屏: 画面边缘到屏幕边缘 */
+        @media (orientation: portrait) and (max-width: 599px) {
+            .screen-frame {
+                margin-left: -14px;
+                margin-right: -14px;
+            }
+        }
     </style>
     <script src="./midi.js"></script>
 </head>
@@ -634,16 +666,14 @@
 
         function js_startShake(ms) {
             shakeStartTime = Date.now();
+            var toggle = false;
             shakef = setInterval(() => {
                 if (Date.now() - shakeStartTime >= ms) {
                     js_stopShake();
                     return;
                 }
-                if (canvas.style.marginLeft === '-121px') {
-                    canvas.style.marginLeft = '-119px';
-                } else {
-                    canvas.style.marginLeft = '-121px';
-                }
+                toggle = !toggle;
+                canvas.style.transform = toggle ? 'translateX(-1px)' : 'translateX(1px)';
             }, 1);
             return 0;
         }
@@ -652,7 +682,7 @@
             if (shakef) {
                 clearInterval(shakef);
                 shakef = 0;
-                canvas.style.marginLeft = '-120px';
+                canvas.style.transform = '';
             }
             return 0;
         }
