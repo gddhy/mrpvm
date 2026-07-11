@@ -308,6 +308,9 @@
         #toggleVConsole { border-color: rgba(210,153,34,0.25); background: rgba(210,153,34,0.1); color: var(--warning); }
         #toggleVConsole:active { background: rgba(210,153,34,0.2); }
 
+        #toggleAA { border-color: rgba(56,211,159,0.25); background: rgba(56,211,159,0.1); color: #38d39f; }
+        #toggleAA:active { background: rgba(56,211,159,0.2); }
+
         /* ---- 吐司提示 ---- */
         .toast {
             position: fixed;
@@ -581,6 +584,7 @@
                     <input type="button" id="clearSaves" value="清除存档" />
                     <input type="button" id="downloadAll" value="下载文件" />
                     <input type="button" id="toggleVConsole" value="调试控制台" />
+                    <input type="button" id="toggleAA" value="抗锯齿" />
                 </div>
             </div>
         </details>
@@ -756,6 +760,35 @@
             } else {
                 toggleVConsoleBtn.value = '调试控制台(已启)';
                 showToast('已启用调试控制台，下次打开模拟器生效');
+            }
+        });
+
+        // ---- 抗锯齿开关 ----
+        var toggleAABtn = document.getElementById('toggleAA');
+        function updateAAState(aaOff) {
+            var canvasEl = document.getElementById('canvas');
+            if (aaOff) {
+                canvasEl.style.imageRendering = 'pixelated';
+                toggleAABtn.value = '抗锯齿(已关)';
+            } else {
+                canvasEl.style.imageRendering = '';
+                toggleAABtn.value = '抗锯齿(已开)';
+            }
+        }
+        // 页面加载时恢复上次设置
+        (function () {
+            var saved = localStorage.getItem('vmrp_aa');
+            updateAAState(saved === 'false');
+        })();
+        toggleAABtn.addEventListener('click', function () {
+            var current = localStorage.getItem('vmrp_aa');
+            var newState = (current === 'false') ? 'true' : 'false';
+            localStorage.setItem('vmrp_aa', newState);
+            updateAAState(newState === 'false');
+            if (newState === 'false') {
+                showToast('已关闭抗锯齿，画面将显示像素风格');
+            } else {
+                showToast('已开启抗锯齿，画面将平滑显示');
             }
         });
 
