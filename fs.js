@@ -7,10 +7,10 @@ var Module = typeof Module !== 'undefined' ? Module : {};
      *
      * 存储方式：IndexedDB (无容量限制, 直接存二进制)
      * 加载优先级：IndexedDB -> 服务器
+     * 同步策略：FS 文件变动实时同步到 IndexedDB (writeFile/unlink 拦截)
      * ==================================================================== */
 
     var SAVE_INDEX_KEY = 'vmrp_save_index'; // 仅用于迁移清理旧 localStorage 数据
-    var SAVE_INTERVAL = 10000;
     var urlParamFile = null;
     var serverPath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1) + 'fs/';
 
@@ -87,6 +87,28 @@ var Module = typeof Module !== 'undefined' ? Module : {};
         } catch (e) {
             console.warn('[vmrp-save] IDB 读取异常 ' + path + ': ' + e.message);
             return null;
+        }
+    }
+
+    // 从 IndexedDB 删除单个文件
+    async function deleteFromStorage(path) {
+        try {
+            var db = await idbSaveOpen();
+            return new Promise(function (resolve, reject) {
+                var tx = db.transaction(IDB_SAVE_STORE, 'readwrite');
+                tx.objectStore(IDB_SAVE_STORE).delete(path);
+                tx.oncomplete = function () {
+                    console.log('[vmrp-sync] IDB 删除: ' + path);
+                    resolve(true);
+                };
+                tx.onerror = function () {
+                    console.warn('[vmrp-sync] IDB 删除失败 ' + path);
+                    resolve(false);
+                };
+            });
+        } catch (e) {
+            console.warn('[vmrp-sync] IDB 删除异常 ' + path + ': ' + e.message);
+            return false;
         }
     }
 
@@ -198,15 +220,170 @@ var Module = typeof Module !== 'undefined' ? Module : {};
     }
 
     /* ====================================================================
+     * FS 实时同步模块 — 拦截 writeFile / unlink / rename, 实时同步到 IndexedDB
+     *
+     * 在 postRun 中安装钩子, 替换 FS.writeFile / FS.unlink / FS.rename:
+     *   - writeFile: 写入 FS 后, 立即异步写入 IndexedDB
+     *   - unlink: 从 FS 删除后, 立即异步从 IndexedDB 删除
+     *   - rename: 重命名后, 删除旧路径, 写入新路径
+     *
+     * 初始加载阶段 (skipSync=true) 不触发同步, 避免重复写入
+     * 对账机制: saveAll 时对比 FS 文件列表与 IndexedDB keys, 清理孤儿记录
+     * ==================================================================== */
+
+    var skipSync = true; // 初始加载阶段跳过同步, postRun 完成后改为 false
+    var syncWriteQueue = []; // 写入队列, 避免 IndexedDB 并发事务过多
+
+    // 处理写入队列 (串行执行, 防止 IndexedDB 事务冲突)
+    var processingQueue = false;
+    async function processSyncQueue() {
+        if (processingQueue) return;
+        processingQueue = true;
+        while (syncWriteQueue.length > 0) {
+            var item = syncWriteQueue.shift();
+            try {
+                if (item.type === 'write') {
+                    await saveToStorage(item.path, item.data);
+                } else if (item.type === 'delete') {
+                    await deleteFromStorage(item.path);
+                }
+            } catch (e) {
+                console.warn('[vmrp-sync] 同步失败: ' + e.message);
+            }
+        }
+        processingQueue = false;
+    }
+
+    // 入队同步操作 (异步执行, 不阻塞 FS 操作)
+    function enqueueSync(type, path, data) {
+        syncWriteQueue.push({ type: type, path: path, data: data });
+        processSyncQueue();
+    }
+
+    // 判断路径是否在 /mythroad 下 (含子目录)
+    function isMythroadPath(path) {
+        if (!path) return false;
+        return path.indexOf('/mythroad/') === 0 || path === '/mythroad';
+    }
+
+    // 对账: 清理 IndexedDB 中 FS 已不存在的孤儿记录
+    async function reconcileStorage() {
+        if (typeof FS === 'undefined') return;
+        try {
+            var idbPaths = await getStoragePaths();
+            var fsPaths = {};
+            var fsFileList = scanDir('/mythroad');
+            for (var i = 0; i < fsFileList.length; i++) {
+                fsPaths[fsFileList[i]] = true;
+            }
+            // 也不要清理预加载文件 (它们在 FS 中存在但可能还没加载)
+            for (var p in preloadFileSet) {
+                fsPaths[p] = true;
+            }
+
+            var orphanCount = 0;
+            for (var k = 0; k < idbPaths.length; k++) {
+                var idbPath = idbPaths[k];
+                if (!fsPaths[idbPath]) {
+                    // IndexedDB 中有但 FS 中没有 → 删除
+                    await deleteFromStorage(idbPath);
+                    orphanCount++;
+                }
+            }
+            if (orphanCount > 0) {
+                console.log('[vmrp-sync] 对账: 清理了 ' + orphanCount + ' 个孤儿记录');
+            }
+        } catch (e) {
+            console.warn('[vmrp-sync] 对账失败: ' + e.message);
+        }
+    }
+
+    // 安装 FS 钩子 (在 postRun 中调用)
+    function installFSHooks() {
+        if (typeof FS === 'undefined') {
+            console.warn('[vmrp-sync] FS 不可用, 无法安装钩子');
+            return;
+        }
+
+        // 保存原始方法
+        var originalWriteFile = FS.writeFile;
+        var originalUnlink = FS.unlink;
+        var originalRename = FS.rename;
+
+        // 替换 FS.writeFile: 写入后实时同步到 IndexedDB
+        FS.writeFile = function (path, data, opts) {
+            // 调用原始方法写入 FS
+            var result = originalWriteFile.call(FS, path, data, opts);
+
+            // 同步到 IndexedDB (跳过初始加载阶段和 urlParamFile)
+            if (!skipSync && isMythroadPath(path)) {
+                if (urlParamFile && path === urlParamFile) return result;
+
+                // 获取写入的数据 (可能是 string 或 Uint8Array)
+                var writeData;
+                try {
+                    writeData = FS.readFile(path);
+                } catch (e) {
+                    return result;
+                }
+                enqueueSync('write', path, writeData);
+            }
+
+            return result;
+        };
+
+        // 替换 FS.unlink: 删除后实时同步从 IndexedDB 删除
+        // 使用 try-finally 确保即使原始 unlink 抛异常也能同步删除
+        FS.unlink = function (path) {
+            var success = false;
+            try {
+                var result = originalUnlink.call(FS, path);
+                success = true;
+                return result;
+            } finally {
+                // 无论成功还是失败, 只要路径匹配就尝试从 IndexedDB 删除
+                // (文件可能已经从 FS 删除了, 但 IndexedDB 还有残留)
+                if (!skipSync && isMythroadPath(path)) {
+                    enqueueSync('delete', path, null);
+                }
+            }
+        };
+
+        // 替换 FS.rename: 重命名后同步 (旧路径删除, 新路径写入)
+        if (originalRename) {
+            FS.rename = function (oldPath, newPath) {
+                var result = originalRename.call(FS, oldPath, newPath);
+                if (!skipSync) {
+                    // 旧路径从 IndexedDB 删除
+                    if (isMythroadPath(oldPath)) {
+                        enqueueSync('delete', oldPath, null);
+                    }
+                    // 新路径写入 IndexedDB
+                    if (isMythroadPath(newPath)) {
+                        if (urlParamFile && newPath === urlParamFile) return result;
+                        try {
+                            var data = FS.readFile(newPath);
+                            enqueueSync('write', newPath, data);
+                        } catch (e) { /* 跳过 */ }
+                    }
+                }
+                return result;
+            };
+        }
+
+        console.log('[vmrp-sync] FS 钩子已安装 (writeFile/unlink/rename → IndexedDB 实时同步)');
+    }
+
+    /* ====================================================================
      * 核心保存/加载逻辑
      * ==================================================================== */
 
     var fileSizes = {};
     var preloadFileSet = {};
     var savesCleared = false;
-    var saveIntervalId = null;
 
-    // 将 /mythroad 目录下所有文件保存到 IndexedDB
+    // 全量保存 (仅用于手动"保存进度"按钮)
+    // 同时执行对账, 清理 IndexedDB 中的孤儿记录
     async function saveAll(force) {
         if (typeof FS === 'undefined') return 0;
         if (savesCleared) return 0;
@@ -219,10 +396,7 @@ var Module = typeof Module !== 'undefined' ? Module : {};
             if (urlParamFile && p === urlParamFile) { skippedUrl++; continue; }
             try {
                 var stat = FS.stat(p);
-                if (!force && fileSizes[p] === stat.size) { skipped++; continue; }
                 var data = FS.readFile(p);
-
-                // 保存到 IndexedDB (异步, 不阻塞)
                 idbPromises.push(saveToStorage(p, data).then(function (ok) {
                     if (ok) saved++;
                 }));
@@ -230,12 +404,13 @@ var Module = typeof Module !== 'undefined' ? Module : {};
             } catch (e) { /* 跳过异常文件 */ }
         }
 
-        // 等待所有 IndexedDB 写入完成
         await Promise.all(idbPromises);
 
+        // 对账: 清理 IndexedDB 中 FS 已不存在的孤儿记录
+        await reconcileStorage();
+
         if (saved > 0 || force) {
-            console.log('[vmrp-save] 保存完成: ' + saved + ' 个文件, ' +
-                        skipped + ' 个未变更' +
+            console.log('[vmrp-save] 全量保存: ' + saved + ' 个文件' +
                         (skippedUrl > 0 ? ', ' + skippedUrl + ' 个链接文件跳过' : '') +
                         ' (IndexedDB)');
         }
@@ -243,10 +418,10 @@ var Module = typeof Module !== 'undefined' ? Module : {};
     }
 
     // 从 IndexedDB 加载不在预加载列表中的额外存档文件
+    // 加载完成后执行对账, 清理 IndexedDB 中的孤儿记录
     async function loadExtraSavesAsync() {
         if (typeof FS === 'undefined') return;
 
-        // 从 IndexedDB 获取所有文件路径 (异步)
         var idbPaths = await getStoragePaths();
         var loaded = 0;
 
@@ -272,13 +447,15 @@ var Module = typeof Module !== 'undefined' ? Module : {};
         if (loaded > 0) {
             console.log('[vmrp-save] 恢复了 ' + loaded + ' 个额外存档文件');
         }
+
+        // 对账: 清理 IndexedDB 中 FS 已不存在的孤儿记录
+        // (捕获上次会话中可能遗漏的删除操作)
+        await reconcileStorage();
     }
 
     async function clearAllSaves() {
-        // 清除 IndexedDB 中的所有文件数据
         await clearStorageAll();
 
-        // 清除 localStorage 索引
         localStorage.removeItem(SAVE_INDEX_KEY);
 
         // 清除旧的 localStorage 文件数据 (迁移遗留)
@@ -289,10 +466,6 @@ var Module = typeof Module !== 'undefined' ? Module : {};
 
         fileSizes = {};
         savesCleared = true;
-        if (saveIntervalId) {
-            clearInterval(saveIntervalId);
-            saveIntervalId = null;
-        }
         console.log('[vmrp-save] 已清除所有存档文件 (IndexedDB)');
         return oldIndex.length;
     }
@@ -312,7 +485,6 @@ var Module = typeof Module !== 'undefined' ? Module : {};
      * 预加载阶段 (preRun)
      * ==================================================================== */
 
-    // 从服务器获取文件 (XMLHttpRequest, 兼容性好)
     function fetchArrayBuffer(url) {
         return new Promise(function (resolve, reject) {
             var xhr = new XMLHttpRequest();
@@ -362,12 +534,10 @@ var Module = typeof Module !== 'undefined' ? Module : {};
             "/cfunction.ext",
         ];
 
-        // 构建预加载文件集合
         for (var i = 0; i < files.length; i++) {
             preloadFileSet[files[i]] = true;
         }
 
-        // 创建目录
         for (var d = 0; d < dirs.length; d++) {
             FS.mkdir(dirs[d]);
         }
@@ -395,7 +565,6 @@ var Module = typeof Module !== 'undefined' ? Module : {};
             }
         }
         function onAllFilesDone() {
-            // 安全保护: 5 秒后无论如何都移除依赖, 防止运行时卡死
             var safetyTimer = setTimeout(function () {
                 console.warn('[vmrp-save] loadExtraSavesAsync 超时, 强制启动运行时');
                 removeDep();
@@ -422,7 +591,6 @@ var Module = typeof Module !== 'undefined' ? Module : {};
     }
 
     // 异步加载单个文件
-    // 统一加载策略: IndexedDB -> 服务器
     async function loadFileAsync(v, dsm_gm, callback) {
         var name = v.substring(v.lastIndexOf('/') + 1);
         var useUrlParam = (dsm_gm && name === 'dsm_gm.mrp');
@@ -468,7 +636,7 @@ var Module = typeof Module !== 'undefined' ? Module : {};
             } catch (e) {
                 console.warn('[vmrp-save] 写入失败 ' + v + ': ' + e.message);
             }
-            // 保存到 IndexedDB
+            // 保存到 IndexedDB (初始加载阶段直接写入, 不经过钩子)
             saveToStorage(v, data);
         } catch (e) {
             console.warn('[vmrp-save] 服务器获取失败 ' + v + ': ' + e.message);
@@ -486,18 +654,12 @@ var Module = typeof Module !== 'undefined' ? Module : {};
     Module["postRun"].push(function () {
         initFileSizes();
 
-        saveIntervalId = setInterval(function () { saveAll(false); }, SAVE_INTERVAL);
+        // 安装 FS 实时同步钩子
+        installFSHooks();
 
-        document.addEventListener('visibilitychange', function () {
-            if (document.visibilityState === 'hidden') {
-                saveAll(true);
-            }
-        });
-
-        window.addEventListener('pagehide', function () { saveAll(true); });
-        window.addEventListener('beforeunload', function () { saveAll(true); });
-
-        console.log('[vmrp-save] 存档系统已启动 (自动保存间隔: ' + (SAVE_INTERVAL / 1000) + 's, IndexedDB)');
+        // 初始加载阶段结束, 开启实时同步
+        skipSync = false;
+        console.log('[vmrp-save] 存档系统已启动 (实时同步模式: writeFile/unlink → IndexedDB)');
     });
 
     /* ====================================================================
@@ -587,6 +749,7 @@ var Module = typeof Module !== 'undefined' ? Module : {};
             cv.setUint32(38, 0, true);
             cv.setUint32(42, offset, true);
             cdh.set(nameBytes, 46);
+
             centralDir.push(cdh);
 
             offset += lfh.length + compressed.length;
@@ -679,7 +842,6 @@ var Module = typeof Module !== 'undefined' ? Module : {};
         return count;
     };
 
-    // 获取存档信息 (异步, 因为 IndexedDB 是异步 API)
     window.vmrpGetSaveInfo = async function () {
         var paths = await getStoragePaths();
         var totalSize = await getStorageSize();

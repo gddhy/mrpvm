@@ -230,7 +230,7 @@
             font-size: 15px;
             font-weight: 600;
             border: 1px solid var(--card-border);
-            border-radius: 50%;
+            border-radius: 8px;
             background: var(--key-bg);
             color: var(--text);
             outline: none;
@@ -342,23 +342,16 @@
             opacity: 0.8;
         }
 
-        /* ---- 提示 ---- */
-        .notice {
-            text-align: center;
-            color: var(--warning);
-            font-size: 12px;
-            margin: 0 0 16px;
-        }
-
         /* ---- 帮助 / 说明 ---- */
-        .help-section {
+        .help-section, .func-section {
             background: var(--card-bg);
             border: 1px solid var(--card-border);
             border-radius: var(--radius);
             padding: 0;
             overflow: hidden;
+            margin-bottom: 16px;
         }
-        .help-section summary {
+        .help-section summary, .func-section summary {
             padding: 12px 16px;
             font-size: 13px;
             font-weight: 600;
@@ -370,16 +363,20 @@
             gap: 8px;
             transition: background 0.15s;
         }
-        .help-section summary::-webkit-details-marker { display: none; }
-        .help-section summary::before {
-            content: "▶";
+        .help-section summary::-webkit-details-marker,
+        .func-section summary::-webkit-details-marker { display: none; }
+        .help-section summary::before,
+        .func-section summary::before {
+            content: "\25B6";
             font-size: 10px;
             transition: transform 0.2s;
         }
-        .help-section[open] summary::before {
+        .help-section[open] summary::before,
+        .func-section[open] summary::before {
             transform: rotate(90deg);
         }
-        .help-section summary:hover {
+        .help-section summary:hover,
+        .func-section summary:hover {
             background: rgba(255,255,255,0.03);
         }
         .help-section .help-content {
@@ -388,6 +385,15 @@
             line-height: 1.8;
             color: var(--text-dim);
             user-select: text;
+        }
+        .func-section .func-content {
+            padding: 8px 16px 16px;
+        }
+        .func-section .search-bar {
+            margin-bottom: 12px;
+        }
+        .func-section .action-bar {
+            margin-bottom: 0;
         }
         .help-section .help-content a {
             color: var(--accent);
@@ -420,6 +426,14 @@
 
         /* 竖屏: canvas 横向拉伸至容器宽度, 竖向等比缩放 */
         @media (orientation: portrait) {
+            /* 加载完成后贴顶显示 */
+            #main.loaded .status-bar {
+                display: none;
+            }
+            #main.loaded {
+                padding-top: 4px;
+            }
+
             #screen {
                 width: 100%;
             }
@@ -440,6 +454,23 @@
                 bottom: 0;
                 margin-left: 0;
             }
+
+            /* 键盘宽度调整为屏幕宽度 */
+            #keymap {
+                max-width: 100%;
+                width: 100%;
+            }
+            #keymap > div {
+                gap: 4px;
+            }
+            #keymap > div button {
+                width: auto;
+                flex: 1 1 0;
+                aspect-ratio: 1;
+                height: auto;
+                line-height: 1;
+                font-size: 3.5vw;
+            }
         }
 
         /* 手机竖屏: 画面边缘到屏幕边缘 */
@@ -447,6 +478,7 @@
             .screen-frame {
                 margin-left: -14px;
                 margin-right: -14px;
+                margin-bottom: 16px;
             }
         }
     </style>
@@ -502,21 +534,25 @@
                 <button id="key_pound">#</button>
             </div>
         </div>
-        <p class="notice">网页无法发短信，所以不可能产生付费，放心使用</p>
-        <div id="mrp_search" class="search-bar">
-            <form action="https://mrp-search.gddhy.net/" method="get">
-            <input type="text" name="name"/>
-            <input type="submit" value="搜索MRP"/>
-            </form>
-        </div>
-        <div class="action-bar">
-            <input type="button" id="mrpStore" value="MRP商店" />
-            <input type="file" id="files" multiple style="display:none" />
-            <input type="button" id="import" value="导入文件" />
-            <input type="button" id="saveProgress" value="保存进度" />
-            <input type="button" id="clearSaves" value="清除存档" />
-            <input type="button" id="downloadAll" value="下载文件" />
-        </div>
+        <details class="func-section">
+            <summary>功能区</summary>
+            <div class="func-content">
+                <div id="mrp_search" class="search-bar">
+                    <form action="https://mrp-search.gddhy.net/" method="get">
+                    <input type="text" name="name"/>
+                    <input type="submit" value="搜索MRP"/>
+                    </form>
+                </div>
+                <div class="action-bar">
+                    <input type="button" id="mrpStore" value="MRP商店" />
+                    <input type="file" id="files" multiple style="display:none" />
+                    <input type="button" id="import" value="导入文件" />
+                    <input type="button" id="saveProgress" value="保存进度" />
+                    <input type="button" id="clearSaves" value="清除存档" />
+                    <input type="button" id="downloadAll" value="下载文件" />
+                </div>
+            </div>
+        </details>
         <details class="help-section">
             <summary>使用帮助 &amp; 说明</summary>
             <div class="help-content">
@@ -529,6 +565,7 @@
                 Tab 键：接听键，ESC 键：挂机键<br>
                 导入文件后不会刷新列表，可以先打开一个 app 然后退出 app 刷新<br><br>
                 <strong style="color:var(--accent-2)">存档功能：</strong>游戏进度会自动保存到 IndexedDB（无容量限制），下次打开网页时自动恢复。也可点击"保存进度"手动保存，点击"清除存档"清除所有存档。<br><br>
+                <strong style="color:var(--warning)">提示：</strong>网页无法发短信，所以不可能产生付费，放心使用<br><br>
                 支持导入 NES 文件，使用 MyNes 模拟器运行。若游戏需要资源包，可以导入 zip 后用压缩管理器解压。<br>
                 MIDI 播放采用的是简易的 <a href="https://github.com/chenx/MidiPlayer">MidiPlayer</a>，效果很一般。<br><br>
                 开源地址：<a href="https://github.com/zengming00/vmrp" target="_blank">https://github.com/zengming00/vmrp</a><br>
@@ -541,6 +578,23 @@
         if(navigator.userAgent.match(/QQ\//i)) {
         document.getElementById("mrp_search").style.display = "none";
         }})
+    </script>
+    <script>
+        // 恢复功能区折叠/展开状态
+        (function () {
+            var funcSection = document.querySelector('.func-section');
+            if (!funcSection) return;
+            var saved = localStorage.getItem('vmrp_func_open');
+            // 默认展开，仅当上次记录为关闭时才收起
+            if (saved === 'false') {
+                funcSection.removeAttribute('open');
+            } else {
+                funcSection.setAttribute('open', '');
+            }
+            funcSection.addEventListener('toggle', function () {
+                localStorage.setItem('vmrp_func_open', funcSection.hasAttribute('open'));
+            });
+        })();
     </script>
     <script>
         function GetQueryString(name) {
@@ -905,7 +959,9 @@
 
         var Module = {
             preRun: [],
-            postRun: [setTitle],
+            postRun: [setTitle, function() {
+                document.getElementById('main').classList.add('loaded');
+            }],
             print: print,
             printErr: function (text) {
                 if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
@@ -949,6 +1005,9 @@
             monitorRunDependencies: function (left) {
                 this.totalDependencies = Math.max(this.totalDependencies, left);
                 Module.setStatus(left ? '准备中... (' + (this.totalDependencies - left) + '/' + this.totalDependencies + ')' : '下载完成');
+                if (!left) {
+                    document.getElementById('main').classList.add('loaded');
+                }
             }
         };
         Module.setStatus('下载中...');
