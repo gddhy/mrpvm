@@ -311,6 +311,9 @@
         #toggleAA { border-color: rgba(56,211,159,0.25); background: rgba(56,211,159,0.1); color: #38d39f; }
         #toggleAA:active { background: rgba(56,211,159,0.2); }
 
+        #toggleKeymap { border-color: rgba(247,120,168,0.25); background: rgba(247,120,168,0.1); color: #f778a8; }
+        #toggleKeymap:active { background: rgba(247,120,168,0.2); }
+
         /* ---- 吐司提示 ---- */
         .toast {
             position: fixed;
@@ -468,7 +471,7 @@
             }
 
             #screen {
-                width: 100%;
+                width: var(--portrait-canvas-w, 100%);
             }
 
             #canvas {
@@ -585,6 +588,7 @@
                     <input type="button" id="downloadAll" value="下载文件" />
                     <input type="button" id="toggleVConsole" value="调试控制台" />
                     <input type="button" id="toggleAA" value="抗锯齿" />
+                    <input type="button" id="toggleKeymap" value="虚拟键盘" />
                 </div>
             </div>
         </details>
@@ -790,6 +794,89 @@
             } else {
                 showToast('已开启抗锯齿，画面将平滑显示');
             }
+        });
+
+        // ---- 虚拟键盘显示/隐藏开关 ----
+        var toggleKeymapBtn = document.getElementById('toggleKeymap');
+        var keymapEl = document.getElementById('keymap');
+        function updateKeymapState(hidden) {
+            if (hidden) {
+                keymapEl.style.display = 'none';
+                toggleKeymapBtn.value = '虚拟键盘(已隐)';
+            } else {
+                keymapEl.style.display = '';
+                toggleKeymapBtn.value = '虚拟键盘(已显)';
+            }
+        }
+        // 页面加载时恢复上次设置，默认显示
+        (function () {
+            var saved = localStorage.getItem('vmrp_keymap');
+            updateKeymapState(saved === 'false');
+        })();
+        toggleKeymapBtn.addEventListener('click', function () {
+            var current = localStorage.getItem('vmrp_keymap');
+            var newState = (current === 'false') ? 'true' : 'false';
+            localStorage.setItem('vmrp_keymap', newState);
+            updateKeymapState(newState === 'false');
+            if (newState === 'false') {
+                showToast('已隐藏虚拟键盘');
+            } else {
+                showToast('已显示虚拟键盘');
+            }
+        });
+
+        // ---- 竖屏画面自适应 ----
+        // 竖屏时根据视口高度判断键盘是否被遮挡，若被遮挡则按比例缩小 canvas
+        function adjustPortraitCanvas() {
+            var mainEl = document.getElementById('main');
+            var keymapEl = document.getElementById('keymap');
+            if (!mainEl || !keymapEl || !canvas) return;
+
+            // 横屏不处理，清除限制
+            if (window.matchMedia('(orientation: landscape)').matches) {
+                mainEl.style.removeProperty('--portrait-canvas-w');
+                return;
+            }
+
+            // 先清除限制，测量自然状态
+            mainEl.style.removeProperty('--portrait-canvas-w');
+            void canvas.offsetHeight; // 强制回流
+
+            var viewportH = window.innerHeight;
+            var keymapRect = keymapEl.getBoundingClientRect();
+
+            // 键盘底部在视口内，不需要调整
+            if (keymapRect.bottom <= viewportH) {
+                return;
+            }
+
+            // 键盘被遮挡，计算可用高度
+            var canvasRect = canvas.getBoundingClientRect();
+            var gap = keymapRect.top - canvasRect.bottom; // canvas 与键盘之间的间距
+
+            // 可用高度 = 视口高度 - canvas 顶部位置 - 间距 - 键盘高度
+            var availableH = viewportH - canvasRect.top - gap - keymapRect.height;
+
+            if (availableH <= 0) return; // 空间不足，无法调整
+
+            // canvas 宽度 = 高度 * (240/320)
+            var canvasW = availableH * (240 / 320);
+
+            // 不超过容器全宽
+            var screenFrame = document.querySelector('.screen-frame');
+            var containerW = screenFrame.clientWidth;
+            if (canvasW >= containerW) return; // 全宽已足够，无需限制
+
+            mainEl.style.setProperty('--portrait-canvas-w', Math.floor(canvasW) + 'px');
+        }
+
+        window.addEventListener('resize', adjustPortraitCanvas);
+        window.addEventListener('orientationchange', function () {
+            setTimeout(adjustPortraitCanvas, 200);
+        });
+        // 页面 load 后延迟调用一次（处理某些浏览器布局延迟）
+        window.addEventListener('load', function () {
+            setTimeout(adjustPortraitCanvas, 300);
         });
 
         const midi = MidiPlayer();
@@ -1061,6 +1148,7 @@
             preRun: [],
             postRun: [setTitle, function() {
                 document.getElementById('main').classList.add('loaded');
+                if (typeof adjustPortraitCanvas === 'function') adjustPortraitCanvas();
             }],
             print: print,
             printErr: function (text) {
@@ -1107,6 +1195,7 @@
                 Module.setStatus(left ? '准备中... (' + (this.totalDependencies - left) + '/' + this.totalDependencies + ')' : '下载完成');
                 if (!left) {
                     document.getElementById('main').classList.add('loaded');
+                    if (typeof adjustPortraitCanvas === 'function') adjustPortraitCanvas();
                 }
             }
         };
