@@ -314,6 +314,129 @@
         #toggleKeymap { border-color: rgba(247,120,168,0.25); background: rgba(247,120,168,0.1); color: #f778a8; }
         #toggleKeymap:active { background: rgba(247,120,168,0.2); }
 
+        #fileMgr { border-color: rgba(88,166,255,0.25); background: rgba(88,166,255,0.1); color: var(--accent); }
+        #fileMgr:active { background: rgba(88,166,255,0.2); }
+
+        /* ---- 文件管理器 ---- */
+        .fm-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.75);
+            z-index: 10000;
+            display: flex; align-items: center; justify-content: center;
+            padding: 8px;
+        }
+        .fm-modal {
+            background: var(--bg-2);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius);
+            width: 100%; max-width: 460px;
+            max-height: 92vh;
+            display: flex; flex-direction: column;
+            overflow: hidden;
+        }
+        .fm-header {
+            display: flex; align-items: center; gap: 6px;
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--card-border);
+            background: rgba(255,255,255,0.03);
+            flex-shrink: 0;
+        }
+        .fm-header button {
+            background: var(--card-bg); border: 1px solid var(--card-border);
+            color: var(--text); border-radius: var(--radius-sm);
+            padding: 6px 12px; font-size: 13px; cursor: pointer; white-space: nowrap;
+            transition: background 0.1s;
+        }
+        .fm-header button:active { background: rgba(255,255,255,0.1); }
+        #fmPath {
+            flex: 1; font-size: 13px; font-weight: 600; color: var(--accent);
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+            min-width: 0;
+        }
+        .fm-toolbar {
+            display: flex; gap: 6px; padding: 8px 12px; flex-wrap: wrap;
+            border-bottom: 1px solid var(--card-border);
+            flex-shrink: 0;
+        }
+        .fm-toolbar button {
+            background: var(--card-bg); border: 1px solid var(--card-border);
+            color: var(--text-dim); border-radius: var(--radius-sm);
+            padding: 6px 12px; font-size: 12px; cursor: pointer;
+            transition: background 0.1s, color 0.1s;
+        }
+        .fm-toolbar button:active { background: rgba(255,255,255,0.08); color: var(--text); }
+        .fm-file-list {
+            flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+            padding: 4px 0; min-height: 200px;
+        }
+        .fm-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 11px 14px;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+            cursor: pointer; transition: background 0.1s;
+        }
+        .fm-item:active { background: rgba(255,255,255,0.06); }
+        .fm-item-icon { font-size: 18px; flex-shrink: 0; width: 22px; text-align: center; }
+        .fm-item-name { flex: 1; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .fm-item-size { font-size: 11px; color: var(--text-dim); flex-shrink: 0; min-width: 50px; text-align: right; }
+        .fm-item-menu { font-size: 20px; color: var(--text-dim); cursor: pointer; padding: 0 6px; flex-shrink: 0; line-height: 1; }
+        .fm-empty { padding: 30px; text-align: center; color: var(--text-dim); font-size: 13px; }
+
+        /* Context Menu */
+        .fm-ctx-menu {
+            position: fixed; background: #1c2128;
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-sm);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+            z-index: 10001; min-width: 150px; overflow: hidden;
+            display: none;
+        }
+        .fm-ctx-item {
+            padding: 11px 16px; font-size: 13px; color: var(--text);
+            cursor: pointer; transition: background 0.1s;
+        }
+        .fm-ctx-item:active { background: rgba(255,255,255,0.08); }
+        .fm-ctx-item.danger { color: var(--danger); }
+        .fm-ctx-sep { height: 1px; background: var(--card-border); }
+
+        /* Sub Dialog */
+        .fm-dialog-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5); z-index: 10002;
+            display: flex; align-items: center; justify-content: center; padding: 16px;
+        }
+        .fm-dialog-box {
+            background: var(--bg-2); border: 1px solid var(--card-border);
+            border-radius: var(--radius); width: 100%; max-width: 380px;
+            overflow: hidden;
+        }
+        .fm-dialog-title {
+            padding: 14px 16px 8px; font-size: 14px; font-weight: 600; color: var(--text);
+        }
+        .fm-dialog-body { padding: 4px 16px 16px; }
+        .fm-dialog-input {
+            width: 100%; background: var(--bg-1);
+            border: 1px solid var(--card-border); border-radius: var(--radius-sm);
+            color: var(--text); padding: 10px 12px; font-size: 14px;
+            outline: none; transition: border-color 0.15s;
+        }
+        .fm-dialog-input:focus { border-color: var(--accent); }
+        .fm-props-row { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; }
+        .fm-props-label { color: var(--text-dim); font-size: 12px; flex-shrink: 0; }
+        .fm-props-value { color: var(--text); font-size: 12px; font-weight: 500; text-align: right; word-break: break-all; }
+        .fm-dialog-actions {
+            display: flex; gap: 8px; justify-content: flex-end;
+            padding: 0 16px 14px;
+        }
+        .fm-dialog-actions button {
+            padding: 8px 20px; border-radius: var(--radius-sm);
+            font-size: 13px; cursor: pointer; border: 1px solid var(--card-border);
+            transition: opacity 0.1s;
+        }
+        .fm-dialog-actions button:active { opacity: 0.7; }
+        .fm-btn-ok { background: var(--accent); color: #fff; border: none; }
+        .fm-btn-cancel { background: var(--card-bg); color: var(--text); }
+
         /* ---- 吐司提示 ---- */
         .toast {
             position: fixed;
@@ -574,7 +697,7 @@
             <summary>功能区</summary>
             <div class="func-content">
                 <div id="mrp_search" class="search-bar">
-                    <form action="https://mrp-search.gddhy.net/" method="get">
+                    <form action="https://mrp-search.gddhy.net/" method="get" target="_blank">
                     <input type="text" name="name"/>
                     <input type="submit" value="搜索MRP"/>
                     </form>
@@ -586,6 +709,7 @@
                     <input type="button" id="saveProgress" value="保存进度" />
                     <input type="button" id="clearSaves" value="清除存档" />
                     <input type="button" id="downloadAll" value="下载文件" />
+                    <input type="button" id="fileMgr" value="文件管理" />
                     <input type="button" id="toggleVConsole" value="调试控制台" />
                     <input type="button" id="toggleAA" value="抗锯齿" />
                     <input type="button" id="toggleKeymap" value="虚拟键盘" />
@@ -613,6 +737,36 @@
         </details>
     </div>
     <div id="toast" class="toast"></div>
+    <!-- 文件管理器 -->
+    <div id="fileManager" class="fm-overlay" style="display:none;">
+        <div class="fm-modal">
+            <div class="fm-header">
+                <button id="fmBack">返回上级</button>
+                <span id="fmPath">/mythroad</span>
+                <button id="fmClose">关闭</button>
+            </div>
+            <div class="fm-toolbar">
+                <button id="fmUpload">上传文件</button>
+                <button id="fmNewFolder">新建文件夹</button>
+                <button id="fmDownloadZip">打包下载</button>
+            </div>
+            <div id="fmFileList" class="fm-file-list"></div>
+            <input type="file" id="fmUploadInput" multiple style="display:none">
+        </div>
+    </div>
+    <!-- 文件管理器 - 上下文菜单 -->
+    <div id="fmCtxMenu" class="fm-ctx-menu"></div>
+    <!-- 文件管理器 - 子对话框 -->
+    <div id="fmDialog" class="fm-dialog-overlay" style="display:none;">
+        <div class="fm-dialog-box">
+            <div id="fmDialogTitle" class="fm-dialog-title"></div>
+            <div id="fmDialogBody" class="fm-dialog-body"></div>
+            <div id="fmDialogActions" class="fm-dialog-actions">
+                <button id="fmDialogCancel" class="fm-btn-cancel">取消</button>
+                <button id="fmDialogOk" class="fm-btn-ok">确定</button>
+            </div>
+        </div>
+    </div>
 	<script>
         window.addEventListener('load',function(){
         if(navigator.userAgent.match(/QQ\//i)) {
@@ -822,6 +976,469 @@
                 showToast('已隐藏虚拟键盘');
             } else {
                 showToast('已显示虚拟键盘');
+            }
+        });
+
+        // ---- 文件管理器 ----
+        var fm = {
+            currentPath: '/mythroad',
+            overlay: document.getElementById('fileManager'),
+            fileList: document.getElementById('fmFileList'),
+            pathLabel: document.getElementById('fmPath'),
+            ctxMenu: document.getElementById('fmCtxMenu'),
+            uploadInput: document.getElementById('fmUploadInput'),
+        };
+
+        function fmOpen() {
+            if (typeof FS === 'undefined') {
+                showToast('模拟器尚未加载完成，请稍后再试');
+                return;
+            }
+            fm.overlay.style.display = 'flex';
+            fmNavigate('/mythroad');
+        }
+        function fmClose() {
+            fm.overlay.style.display = 'none';
+            fmHideCtx();
+            fmHideDialog();
+        }
+        function fmNavigate(path) {
+            fm.currentPath = path;
+            fm.pathLabel.textContent = path;
+            fmRenderList(path);
+        }
+        function fmGoUp() {
+            if (fm.currentPath === '/') return;
+            var parent = fm.currentPath.substring(0, fm.currentPath.lastIndexOf('/'));
+            if (!parent) parent = '/';
+            fmNavigate(parent);
+        }
+        function fmFmtSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / 1048576).toFixed(1) + ' MB';
+        }
+        function fmFmtDate(stat) {
+            var t = stat.mtime || stat.ctime;
+            if (!t) return '未知';
+            if (t instanceof Date) return t.toLocaleString('zh-CN');
+            if (typeof t === 'number') {
+                if (t < 1e12) t *= 1000;
+                return new Date(t).toLocaleString('zh-CN');
+            }
+            return String(t);
+        }
+        function fmFmtMode(mode) {
+            return '0' + (mode & 0o777).toString(8);
+        }
+        function fmRenderList(path) {
+            fm.fileList.innerHTML = '';
+            var entries;
+            try { entries = FS.readdir(path); } catch (e) {
+                fm.fileList.innerHTML = '<div class="fm-empty">无法读取目录</div>';
+                return;
+            }
+            var dirs = [], files = [];
+            for (var i = 0; i < entries.length; i++) {
+                var name = entries[i];
+                if (name === '.' || name === '..') continue;
+                var sep = path.charAt(path.length - 1) === '/' ? '' : '/';
+                var fullPath = path + sep + name;
+                try {
+                    var stat = FS.stat(fullPath);
+                    if (FS.isDir(stat.mode)) dirs.push({ name: name, path: fullPath, stat: stat });
+                    else files.push({ name: name, path: fullPath, stat: stat });
+                } catch (e) { }
+            }
+            dirs.sort(function (a, b) { return a.name.localeCompare(b.name); });
+            files.sort(function (a, b) { return a.name.localeCompare(b.name); });
+            if (dirs.length === 0 && files.length === 0) {
+                fm.fileList.innerHTML = '<div class="fm-empty">空目录</div>';
+                return;
+            }
+            for (var d = 0; d < dirs.length; d++) fmAddItem(dirs[d], true);
+            for (var f = 0; f < files.length; f++) fmAddItem(files[f], false);
+        }
+        function fmAddItem(item, isDir) {
+            var div = document.createElement('div');
+            div.className = 'fm-item';
+            var icon = document.createElement('span');
+            icon.className = 'fm-item-icon';
+            icon.textContent = isDir ? '\u{1F4C1}' : '\u{1F4C4}';
+            var name = document.createElement('span');
+            name.className = 'fm-item-name';
+            name.textContent = item.name;
+            var size = document.createElement('span');
+            size.className = 'fm-item-size';
+            size.textContent = isDir ? '-' : fmFmtSize(item.stat.size);
+            var menuBtn = document.createElement('span');
+            menuBtn.className = 'fm-item-menu';
+            menuBtn.innerHTML = '&#8942;';
+            menuBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                fmShowCtx(e, item, isDir);
+            });
+            div.appendChild(icon);
+            div.appendChild(name);
+            div.appendChild(size);
+            div.appendChild(menuBtn);
+            div.addEventListener('click', function () {
+                if (isDir) fmNavigate(item.path);
+                else fmShowProps(item, false);
+            });
+            fm.fileList.appendChild(div);
+        }
+
+        // ---- Context Menu ----
+        function fmShowCtx(e, item, isDir) {
+            fmHideCtx();
+            var menu = fm.ctxMenu;
+            menu.innerHTML = '';
+            if (isDir) {
+                fmCtxItem(menu, '打开', function () { fmNavigate(item.path); });
+                fmCtxItem(menu, '下载为ZIP', function () { fmDownloadZip(item.path); });
+                fmCtxItem(menu, '重命名', function () { fmRename(item); });
+                fmCtxItem(menu, '移动到...', function () { fmMove(item); });
+                fmCtxItem(menu, '属性', function () { fmShowProps(item, true); });
+                fmCtxSep(menu);
+                fmCtxItem(menu, '删除', function () { fmDelete(item, true); }, true);
+            } else {
+                fmCtxItem(menu, '下载', function () { fmDownloadFile(item); });
+                fmCtxItem(menu, '重命名', function () { fmRename(item); });
+                fmCtxItem(menu, '移动到...', function () { fmMove(item); });
+                fmCtxItem(menu, '复制到...', function () { fmCopy(item); });
+                fmCtxItem(menu, '属性', function () { fmShowProps(item, false); });
+                fmCtxSep(menu);
+                fmCtxItem(menu, '删除', function () { fmDelete(item, false); }, true);
+            }
+            menu.style.display = 'block';
+            var x = e.clientX, y = e.clientY;
+            var r = menu.getBoundingClientRect();
+            if (x + r.width > window.innerWidth) x = window.innerWidth - r.width - 8;
+            if (y + r.height > window.innerHeight) y = window.innerHeight - r.height - 8;
+            menu.style.left = Math.max(0, x) + 'px';
+            menu.style.top = Math.max(0, y) + 'px';
+        }
+        function fmCtxItem(menu, label, cb, danger) {
+            var d = document.createElement('div');
+            d.className = 'fm-ctx-item' + (danger ? ' danger' : '');
+            d.textContent = label;
+            d.addEventListener('click', function () { fmHideCtx(); cb(); });
+            menu.appendChild(d);
+        }
+        function fmCtxSep(menu) {
+            var s = document.createElement('div');
+            s.className = 'fm-ctx-sep';
+            menu.appendChild(s);
+        }
+        function fmHideCtx() { fm.ctxMenu.style.display = 'none'; }
+
+        // ---- Sub Dialog (input / properties) ----
+        function fmShowDialog(opts) {
+            var dlg = document.getElementById('fmDialog');
+            document.getElementById('fmDialogTitle').textContent = opts.title || '';
+            var body = document.getElementById('fmDialogBody');
+            var actions = document.getElementById('fmDialogActions');
+            var okBtn = document.getElementById('fmDialogOk');
+            var cancelBtn = document.getElementById('fmDialogCancel');
+
+            if (opts.html != null) {
+                body.innerHTML = opts.html;
+            } else if (opts.input != null) {
+                body.innerHTML = '<input type="text" id="fmDialogInput" class="fm-dialog-input" value="' + fmEscapeHtml(opts.input) + '">';
+            } else {
+                body.innerHTML = '';
+            }
+
+            okBtn.textContent = opts.okLabel || '确定';
+            cancelBtn.textContent = opts.cancelLabel || '取消';
+            actions.style.display = opts.hideActions ? 'none' : 'flex';
+            okBtn.style.display = opts.hideOk ? 'none' : '';
+
+            okBtn.onclick = function () {
+                if (opts.onOk) {
+                    if (opts.input != null) {
+                        var val = document.getElementById('fmDialogInput').value;
+                        opts.onOk(val);
+                    } else {
+                        opts.onOk();
+                    }
+                } else {
+                    fmHideDialog();
+                }
+            };
+            cancelBtn.onclick = function () {
+                if (opts.onCancel) opts.onCancel();
+                else fmHideDialog();
+            };
+            dlg.style.display = 'flex';
+            if (opts.input != null) {
+                setTimeout(function () {
+                    var inp = document.getElementById('fmDialogInput');
+                    if (inp) {
+                        inp.focus();
+                        inp.select();
+                        // 阻止键盘事件冒泡到 canvas/Emscripten，防止被拦截
+                        inp.addEventListener('keydown', function (e) { e.stopPropagation(); });
+                        inp.addEventListener('keypress', function (e) { e.stopPropagation(); });
+                        inp.addEventListener('keyup', function (e) { e.stopPropagation(); });
+                    }
+                }, 50);
+            }
+        }
+        function fmHideDialog() {
+            document.getElementById('fmDialog').style.display = 'none';
+        }
+        function fmEscapeHtml(s) {
+            return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        // ---- File Actions ----
+        function fmDownloadFile(item) {
+            try {
+                var data = FS.readFile(item.path);
+                var blob = new Blob([data], { type: 'application/octet-stream' });
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = item.name;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
+                showToast('下载: ' + item.name);
+            } catch (e) {
+                showToast('下载失败: ' + e.message);
+            }
+        }
+        function fmDownloadZip(dirPath) {
+            if (typeof window.vmrpScanDir !== 'function' || typeof window.vmrpBuildZip !== 'function') {
+                showToast('ZIP打包功能不可用');
+                return;
+            }
+            var paths = window.vmrpScanDir(dirPath);
+            if (paths.length === 0) {
+                showToast('目录为空');
+                return;
+            }
+            var entries = [];
+            for (var i = 0; i < paths.length; i++) {
+                try {
+                    var data = FS.readFile(paths[i]);
+                    var zipName = paths[i].charAt(0) === '/' ? paths[i].substring(1) : paths[i];
+                    entries.push({ name: zipName, data: data });
+                } catch (e) { }
+            }
+            if (entries.length === 0) {
+                showToast('没有可下载的文件');
+                return;
+            }
+            var blob = window.vmrpBuildZip(entries);
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            var folderName = dirPath.substring(dirPath.lastIndexOf('/') + 1) || 'download';
+            a.download = folderName + '_' + new Date().toISOString().slice(0, 10) + '.zip';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
+            showToast('已打包下载 ' + entries.length + ' 个文件');
+        }
+        function fmRename(item) {
+            fmShowDialog({
+                title: '重命名',
+                input: item.name,
+                onOk: function (newName) {
+                    if (!newName || newName === item.name) { fmHideDialog(); return; }
+                    var sep = fm.currentPath.charAt(fm.currentPath.length - 1) === '/' ? '' : '/';
+                    var newPath = fm.currentPath + sep + newName;
+                    try {
+                        FS.rename(item.path, newPath);
+                        fmHideDialog();
+                        showToast('已重命名为 ' + newName);
+                        fmRenderList(fm.currentPath);
+                    } catch (e) {
+                        showToast('重命名失败: ' + e.message);
+                        fmHideDialog();
+                    }
+                }
+            });
+        }
+        function fmMove(item) {
+            fmShowDialog({
+                title: '移动到 (完整路径)',
+                input: item.path,
+                onOk: function (newPath) {
+                    if (!newPath || newPath === item.path) { fmHideDialog(); return; }
+                    try {
+                        fmEnsureDir(newPath.substring(0, newPath.lastIndexOf('/')));
+                        FS.rename(item.path, newPath);
+                        fmHideDialog();
+                        showToast('已移动到 ' + newPath);
+                        fmRenderList(fm.currentPath);
+                    } catch (e) {
+                        showToast('移动失败: ' + e.message);
+                        fmHideDialog();
+                    }
+                }
+            });
+        }
+        function fmCopy(item) {
+            fmShowDialog({
+                title: '复制到 (完整路径)',
+                input: item.path + '.copy',
+                onOk: function (newPath) {
+                    if (!newPath || newPath === item.path) { fmHideDialog(); return; }
+                    try {
+                        fmEnsureDir(newPath.substring(0, newPath.lastIndexOf('/')));
+                        var data = FS.readFile(item.path);
+                        FS.writeFile(newPath, data);
+                        fmHideDialog();
+                        showToast('已复制到 ' + newPath);
+                        fmRenderList(fm.currentPath);
+                    } catch (e) {
+                        showToast('复制失败: ' + e.message);
+                        fmHideDialog();
+                    }
+                }
+            });
+        }
+        function fmDelete(item, isDir) {
+            fmShowDialog({
+                title: '确认删除',
+                html: '<div style="font-size:13px;color:var(--text);">确定删除 "' + fmEscapeHtml(item.name) + '" 吗？<br>' + (isDir ? '文件夹内所有内容将被删除。' : '') + '</div>',
+                okLabel: '删除',
+                onOk: function () {
+                    try {
+                        if (isDir) fmDeleteDirRecursive(item.path);
+                        else FS.unlink(item.path);
+                        fmHideDialog();
+                        showToast('已删除 ' + item.name);
+                        fmRenderList(fm.currentPath);
+                    } catch (e) {
+                        showToast('删除失败: ' + e.message);
+                        fmHideDialog();
+                    }
+                }
+            });
+        }
+        function fmDeleteDirRecursive(path) {
+            var entries = FS.readdir(path);
+            for (var i = 0; i < entries.length; i++) {
+                var name = entries[i];
+                if (name === '.' || name === '..') continue;
+                var sep = path.charAt(path.length - 1) === '/' ? '' : '/';
+                var fullPath = path + sep + name;
+                var stat = FS.stat(fullPath);
+                if (FS.isDir(stat.mode)) fmDeleteDirRecursive(fullPath);
+                else FS.unlink(fullPath);
+            }
+            FS.rmdir(path);
+        }
+        function fmShowProps(item, isDir) {
+            var html = '<div style="padding:4px 0;">';
+            html += '<div class="fm-props-row"><span class="fm-props-label">名称</span><span class="fm-props-value">' + fmEscapeHtml(item.name) + '</span></div>';
+            html += '<div class="fm-props-row"><span class="fm-props-label">路径</span><span class="fm-props-value">' + fmEscapeHtml(item.path) + '</span></div>';
+            html += '<div class="fm-props-row"><span class="fm-props-label">类型</span><span class="fm-props-value">' + (isDir ? '文件夹' : '文件') + '</span></div>';
+            if (!isDir) {
+                html += '<div class="fm-props-row"><span class="fm-props-label">大小</span><span class="fm-props-value">' + fmFmtSize(item.stat.size) + ' (' + item.stat.size + ' B)</span></div>';
+            }
+            html += '<div class="fm-props-row"><span class="fm-props-label">权限</span><span class="fm-props-value">' + fmFmtMode(item.stat.mode) + '</span></div>';
+            html += '<div class="fm-props-row"><span class="fm-props-label">修改时间</span><span class="fm-props-value">' + fmFmtDate(item.stat) + '</span></div>';
+            html += '</div>';
+            fmShowDialog({
+                title: '文件属性',
+                html: html,
+                hideOk: true,
+                cancelLabel: '关闭',
+                onCancel: function () { fmHideDialog(); }
+            });
+        }
+        function fmUploadFiles() {
+            var files = fm.uploadInput.files;
+            if (!files || files.length === 0) return;
+            var total = files.length, done = 0;
+            for (var i = 0; i < files.length; i++) {
+                (function (file) {
+                    var reader = new FileReader();
+                    reader.onload = function () {
+                        var sep = fm.currentPath.charAt(fm.currentPath.length - 1) === '/' ? '' : '/';
+                        var filePath = fm.currentPath + sep + file.name;
+                        try {
+                            FS.writeFile(filePath, new Uint8Array(reader.result));
+                            done++;
+                            if (done === total) {
+                                showToast('已上传 ' + done + ' 个文件');
+                                fmRenderList(fm.currentPath);
+                            }
+                        } catch (e) {
+                            showToast('上传失败: ' + file.name + ' - ' + e.message);
+                        }
+                    };
+                    reader.onerror = function () {
+                        showToast('读取失败: ' + file.name);
+                    };
+                    reader.readAsArrayBuffer(file);
+                })(files[i]);
+            }
+            fm.uploadInput.value = '';
+        }
+        function fmNewFolder() {
+            fmShowDialog({
+                title: '新建文件夹',
+                input: '',
+                onOk: function (name) {
+                    if (!name) { fmHideDialog(); return; }
+                    var sep = fm.currentPath.charAt(fm.currentPath.length - 1) === '/' ? '' : '/';
+                    var path = fm.currentPath + sep + name;
+                    try {
+                        FS.mkdir(path);
+                        fmHideDialog();
+                        showToast('已创建文件夹 ' + name);
+                        fmRenderList(fm.currentPath);
+                    } catch (e) {
+                        showToast('创建失败: ' + e.message);
+                        fmHideDialog();
+                    }
+                }
+            });
+        }
+        function fmEnsureDir(path) {
+            if (!path || path === '/') return;
+            try {
+                var stat = FS.stat(path);
+                if (FS.isDir(stat.mode)) return;
+            } catch (e) { }
+            var parent = path.substring(0, path.lastIndexOf('/'));
+            fmEnsureDir(parent);
+            try { FS.mkdir(path); } catch (e) { }
+        }
+
+        // ---- 文件管理器事件绑定 ----
+        document.getElementById('fileMgr').addEventListener('click', fmOpen);
+        document.getElementById('fmClose').addEventListener('click', fmClose);
+        document.getElementById('fmBack').addEventListener('click', fmGoUp);
+        document.getElementById('fmUpload').addEventListener('click', function () { fm.uploadInput.click(); });
+        fm.uploadInput.addEventListener('change', fmUploadFiles);
+        document.getElementById('fmNewFolder').addEventListener('click', fmNewFolder);
+        document.getElementById('fmDownloadZip').addEventListener('click', function () { fmDownloadZip(fm.currentPath); });
+        // 点击遮罩关闭
+        fm.overlay.addEventListener('click', function (e) { if (e.target === fm.overlay) fmClose(); });
+        // 阻止子对话框事件冒泡，防止点击输入框时关闭整个文件管理器
+        document.getElementById('fmDialog').addEventListener('click', function (e) { e.stopPropagation(); });
+        // 点击其他地方关闭上下文菜单
+        document.addEventListener('click', function () { fmHideCtx(); });
+        // ESC 关闭
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                if (document.getElementById('fmDialog').style.display !== 'none') {
+                    fmHideDialog();
+                } else if (fm.ctxMenu.style.display === 'block') {
+                    fmHideCtx();
+                } else if (fm.overlay.style.display !== 'none') {
+                    fmClose();
+                }
             }
         });
 

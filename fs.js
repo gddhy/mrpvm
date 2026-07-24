@@ -857,4 +857,13 @@ var Module = typeof Module !== 'undefined' ? Module : {};
         return downloadAll();
     };
 
+    // 暴露内部方法供文件管理器使用
+    window.vmrpScanDir = function (path) {
+        return scanDir(path);
+    };
+
+    window.vmrpBuildZip = function (entries) {
+        return buildZip(entries);
+    };
+
 })();
