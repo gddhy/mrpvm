@@ -1,43 +1,43 @@
 /* MRP模拟器 Service Worker */
 
-var CACHE_NAME = 'vmrp-cache-v1';
+var CACHE_NAME = 'vmrp-cache-v2';
 
 // 核心资源: 必须缓存的页面和脚本
 var CORE_ASSETS = [
-    './',
-    './index.html',
-    './manifest.json',
-    './icon.png',
-    './icon-512.png',
-    './fs.js',
-    './midi.js',
-    './vmrp.js',
-    './vmrp.wasm'
+    '/dev/',
+    '/dev/index.html',
+    '/dev/manifest.json',
+    '/dev/icon.png',
+    '/dev/icon-512.png',
+    '/dev/fs.js',
+    '/dev/midi.js',
+    '/dev/vmrp.js',
+    '/dev/vmrp.wasm'
 ];
 
 // 游戏数据文件 (按需缓存)
 var GAME_FILES = [
-    './fs/cfunction.ext',
-    './fs/mythroad/dsm_gm.mrp',
-    './fs/mythroad/gxqds.mrp',
-    './fs/mythroad/gyhzb.mrp',
-    './fs/mythroad/mpc.mrp',
-    './fs/mythroad/mpzc.mrp',
-    './fs/mythroad/mynes.mrp',
-    './fs/mythroad/opezip.mrp',
-    './fs/mythroad/opmtyx.mrp',
-    './fs/mythroad/txz.mrp',
-    './fs/mythroad/winmine.mrp',
-    './fs/mythroad/ydqtwo.mrp',
-    './fs/mythroad/nes/tank.nes',
-    './fs/mythroad/nes/超级玛丽中文.nes',
-    './fs/mythroad/plugins/advbar.mrp',
-    './fs/mythroad/plugins/flaengine.mrp',
-    './fs/mythroad/plugins/netpay.mrp',
-    './fs/mythroad/plugins/ose/brwcore.mrp',
-    './fs/mythroad/system/gb12.uc2',
-    './fs/mythroad/system/gb12v2.uc2',
-    './fs/mythroad/system/gb16.uc2'
+    '/dev/fs/cfunction.ext',
+    '/dev/fs/mythroad/dsm_gm.mrp',
+    '/dev/fs/mythroad/gxqds.mrp',
+    '/dev/fs/mythroad/gyhzb.mrp',
+    '/dev/fs/mythroad/mpc.mrp',
+    '/dev/fs/mythroad/mpzc.mrp',
+    '/dev/fs/mythroad/mynes.mrp',
+    '/dev/fs/mythroad/opezip.mrp',
+    '/dev/fs/mythroad/opmtyx.mrp',
+    '/dev/fs/mythroad/txz.mrp',
+    '/dev/fs/mythroad/winmine.mrp',
+    '/dev/fs/mythroad/ydqtwo.mrp',
+    '/dev/fs/mythroad/nes/tank.nes',
+    '/dev/fs/mythroad/nes/超级玛丽中文.nes',
+    '/dev/fs/mythroad/plugins/advbar.mrp',
+    '/dev/fs/mythroad/plugins/flaengine.mrp',
+    '/dev/fs/mythroad/plugins/netpay.mrp',
+    '/dev/fs/mythroad/plugins/ose/brwcore.mrp',
+    '/dev/fs/mythroad/system/gb12.uc2',
+    '/dev/fs/mythroad/system/gb12v2.uc2',
+    '/dev/fs/mythroad/system/gb16.uc2'
 ];
 
 // 安装: 缓存核心资源, 然后台缓存游戏文件
@@ -115,7 +115,7 @@ self.addEventListener('fetch', function (event) {
             }).catch(function () {
                 // 网络失败, 对于 HTML 返回离线页面
                 if (event.request.mode === 'navigate') {
-                    return caches.match('./index.html');
+                    return caches.match('/dev/index.html');
                 }
                 return new Response('Offline', { status: 503 });
             });

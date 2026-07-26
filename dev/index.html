@@ -10,9 +10,9 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="MRP模拟器">
-    <link rel="manifest" href="./manifest.json">
-    <link rel="icon" type="image/png" sizes="192x192" href="./icon.png">
-    <link rel="apple-touch-icon" href="./icon.png">
+    <link rel="manifest" href="/dev/manifest.json">
+    <link rel="icon" type="image/png" sizes="192x192" href="/dev/icon.png">
+    <link rel="apple-touch-icon" href="/dev/icon.png">
 	<script src="https://unpkg.com/vconsole/dist/vconsole.min.js"></script>
     <script>
     var vConsole = new window.VConsole();
@@ -967,7 +967,7 @@
     <script>
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', function () {
-            navigator.serviceWorker.register('./sw.js').then(function (reg) {
+            navigator.serviceWorker.register('/dev/sw.js', { scope: '/dev/' }).then(function (reg) {
                 console.log('[vmrp-pwa] Service Worker 注册成功, scope: ' + reg.scope);
             }).catch(function (err) {
                 console.warn('[vmrp-pwa] Service Worker 注册失败: ' + err.message);

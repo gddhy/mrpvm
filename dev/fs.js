@@ -19,6 +19,73 @@ var Module = typeof Module !== 'undefined' ? Module : {};
     var serverPath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1) + 'fs/';
 
     /* ====================================================================
+     * PWA File Handling API (launchQueue)
+     *
+     * 安装为 PWA 后, 系统中双击 .mrp 文件会以 file_handlers 方式启动应用,
+     * 通过 window.launchQueue 拿到文件句柄。
+     * 拿到文件内容后与 ?f= 参数走同一条路: 写入 /mythroad/dsm_gm.mrp,
+     * 模拟器启动时即直接运行该程序。
+     * ==================================================================== */
+
+    var launchFilePromise = null;      // Promise<{name, data}|null>
+    var launchConsumerFired = false;   // 消费者是否已被调用 (用于区分"普通启动"和"文件启动")
+
+    if ('launchQueue' in window && typeof window.launchQueue.setConsumer === 'function') {
+        var launchFileResolve;
+        launchFilePromise = new Promise(function (resolve) { launchFileResolve = resolve; });
+
+        window.launchQueue.setConsumer(function (launchParams) {
+            launchConsumerFired = true;
+            try {
+                if (!launchParams.files || launchParams.files.length === 0) {
+                    // 普通启动 (无文件)
+                    launchFileResolve(null);
+                    return;
+                }
+                // 多个文件时只取第一个文件判断
+                var fileHandle = launchParams.files[0];
+                var fname = fileHandle.name || '';
+                if (!/\.mrp$/i.test(fname)) {
+                    console.warn('[vmrp-pwa] 启动文件不是 mrp 文件, 忽略: ' + fname);
+                    launchFileResolve(null);
+                    return;
+                }
+                console.log('[vmrp-pwa] 收到启动文件: ' + fname);
+                fileHandle.getFile().then(function (file) {
+                    return file.arrayBuffer();
+                }).then(function (buf) {
+                    launchFileResolve({ name: fname, data: new Uint8Array(buf) });
+                }).catch(function (e) {
+                    console.warn('[vmrp-pwa] 读取启动文件失败: ' + e.message);
+                    launchFileResolve(null);
+                });
+            } catch (e) {
+                console.warn('[vmrp-pwa] 处理启动文件异常: ' + e.message);
+                launchFileResolve(null);
+            }
+        });
+    }
+
+    // 获取启动文件 (带超时保护):
+    // - 浏览器不支持 launchQueue -> 立即返回 null
+    // - 超时后消费者仍未触发 (普通打开网页/PWA 普通启动) -> 返回 null
+    // - 消费者已触发但文件还在读取 -> 继续等待读取完成
+    function getLaunchFile() {
+        if (!launchFilePromise) return Promise.resolve(null);
+        return new Promise(function (resolve) {
+            var done = false;
+            function finish(v) { if (!done) { done = true; resolve(v); } }
+            launchFilePromise.then(finish);
+            setTimeout(function () {
+                if (!launchConsumerFired) {
+                    finish(null);
+                }
+                // 消费者已触发则继续等待 launchFilePromise 完成
+            }, 800);
+        });
+    }
+
+    /* ====================================================================
      * File System Access API 模块
      * ==================================================================== */
 
@@ -646,6 +713,9 @@ var Module = typeof Module !== 'undefined' ? Module : {};
             Module.addRunDependency(depId);
         }
 
+        // PWA File Handling: 本地打开的 mrp 文件 (优先级高于 ?f= 参数)
+        var launchFileData = null;
+
         // FSA 初始化完全在后台进行, 不阻塞文件加载
         // vmrpFsaReady 解析后设置 dirHandle/fsaActive, 后续 saveAll 会同步到本地文件夹
         if (window.vmrpFsaReady) {
@@ -697,15 +767,37 @@ var Module = typeof Module !== 'undefined' ? Module : {};
             if (pending === 0) onAllFilesDone();
         }
 
-        for (var f = 0; f < files.length; f++) {
-            loadFileAsync(files[f], dsm_gm, onFileDone);
-        }
+        // 先等待 PWA 启动文件 (无文件或不支持时快速返回 null), 再开始加载
+        getLaunchFile().then(function (lf) {
+            if (lf && lf.data) {
+                launchFileData = lf.data;
+                urlParamFile = '/mythroad/dsm_gm.mrp';
+                console.log('[vmrp-pwa] 将以启动文件运行: ' + lf.name + ' (' + lf.data.length + ' 字节)');
+            }
+            for (var f = 0; f < files.length; f++) {
+                loadFileAsync(files[f], dsm_gm, launchFileData, onFileDone);
+            }
+        });
     }
 
     // 异步加载单个文件
     // 统一加载策略: localStorage -> 服务器 (写入 localStorage, FSA 激活时额外写入)
-    function loadFileAsync(v, dsm_gm, callback) {
+    function loadFileAsync(v, dsm_gm, launchFileData, callback) {
         var name = v.substring(v.lastIndexOf('/') + 1);
+
+        // PWA File Handling 打开的本地 mrp 文件: 直接写入 dsm_gm.mrp, 优先级最高
+        if (launchFileData && name === 'dsm_gm.mrp') {
+            try {
+                FS.writeFile(v, launchFileData);
+                fileSizes[v] = launchFileData.length;
+                console.log('[vmrp-pwa] 已写入启动文件到 ' + v);
+            } catch (e) {
+                console.warn('[vmrp-pwa] 写入启动文件失败: ' + e.message);
+            }
+            callback();
+            return;
+        }
+
         var useUrlParam = (dsm_gm && name === 'dsm_gm.mrp');
 
         // 通过 ?f= 引入的文件: 始终从 URL 加载, 不缓存

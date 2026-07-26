@@ -1,26 +1,39 @@
 {
-    "name": "MRP模拟器",
-    "short_name": "MRP",
-    "description": "基于 Emscripten 的冒泡(Mythroad)模拟器，在浏览器中运行 MRP 应用和游戏",
-    "start_url": "./index.html",
+    "name": "MRP模拟器-FSA",
+    "short_name": "VMRP-FSA",
+    "description": "基于 Emscripten 的冒泡(Mythroad)模拟器，在浏览器中运行 MRP 应用和游戏，使用FSA API版本，可以在win下使用本地文件夹作为mythroad目录",
+    "id": "/dev/",
+    "start_url": "/dev/index.html",
+    "scope": "/dev/",
     "display": "standalone",
     "orientation": "portrait",
     "background_color": "#0d1117",
     "theme_color": "#161b28",
     "icons": [
         {
-            "src": "icon.png",
+            "src": "/dev/icon.png",
             "sizes": "192x192",
             "type": "image/png",
             "purpose": "any"
         },
         {
-            "src": "icon-512.png",
+            "src": "/dev/icon-512.png",
             "sizes": "512x512",
             "type": "image/png",
             "purpose": "any maskable"
         }
     ],
+    "file_handlers": [
+        {
+            "action": "/dev/index.html",
+            "accept": {
+                "application/x-mrp": [".mrp"]
+            }
+        }
+    ],
+    "launch_handler": {
+        "client_mode": "navigate-new"
+    },
     "categories": ["games", "entertainment"],
     "lang": "zh-CN"
 }
