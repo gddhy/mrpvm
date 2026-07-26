@@ -1,6 +1,6 @@
-/* MRP模拟器 Service Worker v2 */
+/* MRP模拟器 Service Worker v3 - 新增 PWA File Handling 支持 */
 
-var CACHE_NAME = 'vmrp-cache-v2';
+var CACHE_NAME = 'vmrp-cache-v3';
 
 // 核心资源: 必须缓存的页面和脚本
 var CORE_ASSETS = [

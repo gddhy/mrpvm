@@ -1,10 +1,23 @@
 {
     "name": "MRP模拟器",
-    "short_name": "MRP",
+    "short_name": "VMRP",
     "description": "基于 Emscripten 的冒泡(Mythroad)模拟器，在浏览器中运行 MRP 应用和游戏",
     "start_url": "./",
     "scope": "./",
     "display": "standalone",
+    "launch_handler": {
+        "client_mode": "navigate-new"
+    },
+    "file_handlers": [
+        {
+            "action": "./",
+            "accept": {
+                "application/x-mrp": [".mrp"],
+                "application/vnd.mrp": [".mrp"],
+                "application/octet-stream": [".mrp"]
+            }
+        }
+    ],
     "orientation": "portrait",
     "background_color": "#0d1117",
     "theme_color": "#161b28",
