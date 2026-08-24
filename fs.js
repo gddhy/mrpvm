@@ -550,6 +550,9 @@ var Module = typeof Module !== 'undefined' ? Module : {};
     }
 
     async function clearAllSaves() {
+        // 先统计实际存档数量 (在清除之前读取 IndexedDB 中的文件路径)
+        var savedPaths = await getStoragePaths();
+
         await clearStorageAll();
 
         localStorage.removeItem(SAVE_INDEX_KEY);
@@ -562,8 +565,8 @@ var Module = typeof Module !== 'undefined' ? Module : {};
 
         fileSizes = {};
         savesCleared = true;
-        console.log('[vmrp-save] 已清除所有存档文件 (IndexedDB)');
-        return oldIndex.length;
+        console.log('[vmrp-save] 已清除 ' + savedPaths.length + ' 个存档文件 (IndexedDB)');
+        return savedPaths.length;
     }
 
     function initFileSizes() {
@@ -917,7 +920,9 @@ var Module = typeof Module !== 'undefined' ? Module : {};
         }
 
         if (entries.length === 0) {
-            alert('没有可下载的文件');
+            if (typeof showToast === 'function') {
+                showToast('没有可下载的文件');
+            }
             return 0;
         }
 

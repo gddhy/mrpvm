@@ -437,6 +437,48 @@
         .fm-btn-ok { background: var(--accent); color: #fff; border: none; }
         .fm-btn-cancel { background: var(--card-bg); color: var(--text); }
 
+        /* ---- 网页内确认弹窗 ---- */
+        .confirm-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.75);
+            z-index: 10020;
+            display: flex; align-items: center; justify-content: center;
+            padding: 24px;
+        }
+        .confirm-box {
+            background: var(--bg-2);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius);
+            width: 100%; max-width: 340px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+            overflow: hidden;
+        }
+        .confirm-title {
+            padding: 16px 18px 4px;
+            font-size: 15px; font-weight: 600; color: var(--text);
+        }
+        .confirm-body {
+            padding: 8px 18px 18px;
+            font-size: 13px; line-height: 1.7; color: var(--text-dim);
+            white-space: pre-line;
+            word-break: break-word;
+            user-select: text;
+        }
+        .confirm-actions {
+            display: flex; gap: 10px; justify-content: flex-end;
+            padding: 0 18px 16px;
+        }
+        .confirm-btn {
+            padding: 8px 22px; border-radius: var(--radius-sm);
+            font-size: 13px; cursor: pointer; border: 1px solid var(--card-border);
+            background: var(--card-bg); color: var(--text);
+            transition: opacity 0.1s;
+        }
+        .confirm-btn:active { opacity: 0.7; }
+        .confirm-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+        .confirm-primary { background: var(--accent); color: #fff; border: none; }
+        .confirm-danger { background: var(--danger); color: #fff; border: none; }
+
         /* ---- 吐司提示 ---- */
         .toast {
             position: fixed;
@@ -450,7 +492,7 @@
             border-radius: var(--radius-sm);
             font-size: 13px;
             line-height: 1.6;
-            z-index: 9999;
+            z-index: 2147483647;
             opacity: 0;
             transition: opacity 0.3s;
             pointer-events: none;
@@ -738,6 +780,17 @@
         </details>
     </div>
     <div id="toast" class="toast"></div>
+    <!-- 网页内确认弹窗 -->
+    <div id="confirmDialog" class="confirm-overlay" style="display:none;">
+        <div class="confirm-box">
+            <div id="confirmDialogTitle" class="confirm-title">提示</div>
+            <div id="confirmDialogBody" class="confirm-body"></div>
+            <div class="confirm-actions">
+                <button id="confirmDialogCancel" class="confirm-btn">取消</button>
+                <button id="confirmDialogOk" class="confirm-btn confirm-danger">确定</button>
+            </div>
+        </div>
+    </div>
     <!-- 文件管理器 -->
     <div id="fileManager" class="fm-overlay" style="display:none;">
         <div class="fm-modal">
@@ -865,14 +918,18 @@
         });
 
         clearSavesBtn.addEventListener("click", function (ev) {
-            if (!confirm('确定要清除所有本地存档吗？\n清除后游戏进度将无法恢复，下次打开网页将恢复初始状态。')) {
-                return;
-            }
-            if (window.vmrpClearSaves) {
-                window.vmrpClearSaves().then(function (count) {
-                    showToast('已清除 ' + count + ' 个本地存档文件，请刷新网页以从服务器重新加载初始文件', 3500);
-                });
-            }
+            vmrpConfirm('确定要清除所有本地存档吗？\n清除后游戏进度将无法恢复，下次打开网页将恢复初始状态。', {
+                title: '清除存档',
+                okLabel: '清除',
+                okClass: 'confirm-danger'
+            }).then(function (ok) {
+                if (!ok) return;
+                if (window.vmrpClearSaves) {
+                    window.vmrpClearSaves().then(function (count) {
+                        showToast('已清除 ' + count + ' 个本地存档文件，请刷新网页以从服务器重新加载初始文件', 3500);
+                    });
+                }
+            });
         });
 
         // ---- 下载文件按钮 ----
@@ -897,6 +954,44 @@
             toast._timer = setTimeout(function () {
                 toast.classList.remove('show');
             }, duration || 3000);
+        }
+
+        // ---- 网页内确认弹窗 ----
+        // 用法: vmrpConfirm('要删除吗?', {title:'提示', okLabel:'删除', okClass:'confirm-danger', hideCancel:false}).then(function(ok){ ... })
+        function vmrpConfirm(message, options) {
+            options = options || {};
+            return new Promise(function (resolve) {
+                var overlay = document.getElementById('confirmDialog');
+                var titleEl = document.getElementById('confirmDialogTitle');
+                var bodyEl = document.getElementById('confirmDialogBody');
+                var okBtn = document.getElementById('confirmDialogOk');
+                var cancelBtn = document.getElementById('confirmDialogCancel');
+                if (!overlay || !titleEl || !bodyEl || !okBtn || !cancelBtn) {
+                    resolve(window.confirm(message));
+                    return;
+                }
+                titleEl.textContent = options.title || '提示';
+                bodyEl.textContent = message;
+                okBtn.textContent = options.okLabel || '确定';
+                cancelBtn.textContent = options.cancelLabel || '取消';
+                okBtn.className = 'confirm-btn ' + (options.okClass || 'confirm-primary');
+                cancelBtn.style.display = options.hideCancel ? 'none' : '';
+
+                overlay.style.display = 'flex';
+                okBtn.focus();
+
+                function done(val) {
+                    okBtn.onclick = null;
+                    cancelBtn.onclick = null;
+                    overlay.onclick = null;
+                    overlay.style.display = 'none';
+                    resolve(val);
+                }
+                okBtn.onclick = function () { done(true); };
+                cancelBtn.onclick = function () { done(false); };
+                // 点击遮罩关闭
+                overlay.onclick = function (e) { if (e.target === overlay) done(false); };
+            });
         }
 
         var toggleVConsoleBtn = document.getElementById('toggleVConsole');
@@ -1433,6 +1528,12 @@
         // ESC 关闭
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') {
+                var cdlg = document.getElementById('confirmDialog');
+                if (cdlg && cdlg.style.display !== 'none') {
+                    var cCancel = document.getElementById('confirmDialogCancel');
+                    if (cCancel && cCancel.onclick) cCancel.onclick();
+                    return;
+                }
                 if (document.getElementById('fmDialog').style.display !== 'none') {
                     fmHideDialog();
                 } else if (fm.ctxMenu.style.display === 'block') {
