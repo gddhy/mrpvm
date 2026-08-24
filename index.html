@@ -738,9 +738,15 @@
         <details class="func-section">
             <summary>功能区</summary>
             <div class="func-content">
-                <div id="mrp_search" class="search-bar">
+                <div id="mrp_search" class="search-bar" style="display:none;">
                     <form action="https://mrp-search.gddhy.net/" method="get" target="_blank">
                     <input type="text" name="name"/>
+                    <input type="submit" value="搜索MRP"/>
+                    </form>
+                </div>
+                <div id="mrp_search_2" class="search-bar">
+                    <form action="https://mrpweb.gddhy.net/" method="get" target="_blank">
+                    <input type="text" name="search"/>
                     <input type="submit" value="搜索MRP"/>
                     </form>
                 </div>
@@ -825,6 +831,7 @@
         window.addEventListener('load',function(){
         if(navigator.userAgent.match(/QQ\//i)) {
         document.getElementById("mrp_search").style.display = "none";
+        document.getElementById("mrp_search_2").style.display = "none";
         }})
     </script>
     <script>
@@ -864,7 +871,8 @@
 		const mrpStoreBtn = document.getElementById('mrpStore');
 
         mrpStoreBtn.addEventListener("click", function(ev) {
-            window.location.href = "http://mrp.gddhy.net/";
+            // window.location.href = "http://mrp.gddhy.net/";
+            window.open('https://mrpweb.gddhy.net/', '_blank', 'noopener');
         });
 
         importBtn.addEventListener("click", function (ev) {
