@@ -1007,9 +1007,9 @@
         (function () {
             var current = localStorage.getItem('vmrp_vconsole');
             if (current === 'false') {
-                toggleVConsoleBtn.value = '调试控制台(已禁)';
+                toggleVConsoleBtn.value = '调试控制台(关)';
             } else {
-                toggleVConsoleBtn.value = '调试控制台(已启)';
+                toggleVConsoleBtn.value = '调试控制台(开)';
             }
         })();
         toggleVConsoleBtn.addEventListener('click', function () {
@@ -1017,10 +1017,10 @@
             var newState = (current === 'false') ? 'true' : 'false';
             localStorage.setItem('vmrp_vconsole', newState);
             if (newState === 'false') {
-                toggleVConsoleBtn.value = '调试控制台(已禁)';
+                toggleVConsoleBtn.value = '调试控制台(关)';
                 showToast('已禁用调试控制台，下次打开模拟器生效');
             } else {
-                toggleVConsoleBtn.value = '调试控制台(已启)';
+                toggleVConsoleBtn.value = '调试控制台(开)';
                 showToast('已启用调试控制台，下次打开模拟器生效');
             }
         });
@@ -1031,10 +1031,10 @@
             var canvasEl = document.getElementById('canvas');
             if (aaOff) {
                 canvasEl.style.imageRendering = 'pixelated';
-                toggleAABtn.value = '抗锯齿(已关)';
+                toggleAABtn.value = '抗锯齿(关)';
             } else {
                 canvasEl.style.imageRendering = '';
-                toggleAABtn.value = '抗锯齿(已开)';
+                toggleAABtn.value = '抗锯齿(开)';
             }
         }
         // 页面加载时恢复上次设置
@@ -1060,10 +1060,10 @@
         function updateKeymapState(hidden) {
             if (hidden) {
                 keymapEl.style.display = 'none';
-                toggleKeymapBtn.value = '虚拟键盘(已隐)';
+                toggleKeymapBtn.value = '虚拟键盘(关)';
             } else {
                 keymapEl.style.display = '';
-                toggleKeymapBtn.value = '虚拟键盘(已显)';
+                toggleKeymapBtn.value = '虚拟键盘(开)';
             }
         }
         // 页面加载时恢复上次设置，默认显示
