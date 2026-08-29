@@ -601,6 +601,203 @@ var Module = typeof Module !== 'undefined' ? Module : {};
         });
     }
 
+    /* ====================================================================
+     * res=<url.zip> 资源包支持
+     *
+     * 链接包含 res=<zip地址> 时, 先把该 zip 下载到内存, 解压到 FS 的
+     * /mythroad 目录 (含子目录), 完成后再加载运行 ?f= 指定的 mrp 或
+     * 默认的 dsm_gm.mrp。原有加载流程不受影响。
+     * 兼容性: 支持 store(0) / deflate(8) 两种压缩方式, 中文文件名
+     * (UTF-8 标志位或 GBK 编码) 自动识别。
+     * ==================================================================== */
+
+    function isZipUrl(u) {
+        try {
+            var p = String(u).split('#')[0].split('?')[0];
+            return /\.zip$/i.test(p);
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function setResStatus(text) {
+        try {
+            if (typeof statusElement !== 'undefined' && statusElement) {
+                statusElement.innerHTML = text;
+            }
+        } catch (e) { /* 忽略 */ }
+        console.log('[vmrp-res] ' + text);
+    }
+
+    // 清洗 zip 条目名, 防路径穿越, 返回相对路径或 null
+    function sanitizeZipEntryName(name) {
+        var n = String(name).replace(/\\/g, '/');
+        var parts = n.split('/');
+        var out = [];
+        for (var i = 0; i < parts.length; i++) {
+            var p = parts[i];
+            if (p === '' || p === '.') continue;
+            if (p === '..') return null; // 禁止路径穿越
+            if (i === 0 && /^[a-zA-Z]:$/.test(p)) continue; // Windows 盘符
+            out.push(p);
+        }
+        if (out.length === 0) return null;
+        return out.join('/');
+    }
+
+    // deflate-raw 解压 (浏览器原生 DecompressionStream)
+    async function inflateRaw(data) {
+        if (typeof DecompressionStream === 'undefined') {
+            throw new Error('当前浏览器不支持 DecompressionStream, 无法解压 deflate 压缩的 zip');
+        }
+        var ds = new DecompressionStream('deflate-raw');
+        var stream = new Blob([data]).stream().pipeThrough(ds);
+        var buf = await new Response(stream).arrayBuffer();
+        return new Uint8Array(buf);
+    }
+
+    // 解析 zip (内存中), 返回 [{name, data}] 数组
+    async function parseZipEntries(data) {
+        var dv = new DataView(data.buffer, data.byteOffset, data.byteLength);
+
+        // 从尾部向前查找 EOCD (End Of Central Directory)
+        var eocdPos = -1;
+        var minPos = Math.max(0, data.length - 22 - 65535);
+        for (var i = data.length - 22; i >= minPos; i--) {
+            if (dv.getUint32(i, true) === 0x06054b50) { eocdPos = i; break; }
+        }
+        if (eocdPos < 0) throw new Error('未找到 ZIP 结束标记 (EOCD)');
+
+        var entryCount = dv.getUint16(eocdPos + 10, true);
+        var cdOffset = dv.getUint32(eocdPos + 16, true);
+        var entries = [];
+        var pos = cdOffset;
+
+        for (var e = 0; e < entryCount; e++) {
+            if (pos + 46 > data.length || dv.getUint32(pos, true) !== 0x02014b50) {
+                throw new Error('ZIP 中央目录损坏');
+            }
+            var flag = dv.getUint16(pos + 8, true);
+            var method = dv.getUint16(pos + 10, true);
+            var compSize = dv.getUint32(pos + 20, true);
+            var nameLen = dv.getUint16(pos + 28, true);
+            var extraLen = dv.getUint16(pos + 30, true);
+            var commentLen = dv.getUint16(pos + 32, true);
+            var lfhOffset = dv.getUint32(pos + 42, true);
+            var nameBytes = data.subarray(pos + 46, pos + 46 + nameLen);
+
+            // 文件名编码: 标志位 bit11 (0x0800) 置位为 UTF-8,
+            // 否则按中文环境下常见的 GBK 解码 (纯 ASCII 两种编码结果一致)
+            var name;
+            var utf8Name = null, gbkName = null;
+            try { utf8Name = new TextDecoder('utf-8').decode(nameBytes); } catch (e2) { }
+            try { gbkName = new TextDecoder('gbk').decode(nameBytes); } catch (e3) { }
+            if (flag & 0x0800) {
+                name = utf8Name;
+            } else {
+                name = gbkName || utf8Name;
+            }
+
+            // 目录条目跳过
+            if (name.charAt(name.length - 1) === '/') {
+                pos += 46 + nameLen + extraLen + commentLen;
+                continue;
+            }
+
+            // 定位本地文件头中的数据起点 (本地头的 extra 长度可能与中央目录不同)
+            if (lfhOffset + 30 > data.length || dv.getUint32(lfhOffset, true) !== 0x04034b50) {
+                throw new Error('ZIP 本地文件头损坏: ' + name);
+            }
+            var lfhNameLen = dv.getUint16(lfhOffset + 26, true);
+            var lfhExtraLen = dv.getUint16(lfhOffset + 28, true);
+            var dataStart = lfhOffset + 30 + lfhNameLen + lfhExtraLen;
+            if (dataStart + compSize > data.length) {
+                throw new Error('ZIP 条目数据越界: ' + name);
+            }
+
+            var fileData;
+            if (method === 0) {
+                fileData = data.subarray(dataStart, dataStart + compSize);
+            } else if (method === 8) {
+                fileData = await inflateRaw(data.subarray(dataStart, dataStart + compSize));
+            } else {
+                throw new Error('不支持的 ZIP 压缩方式 (method=' + method + '): ' + name);
+            }
+
+            entries.push({ name: name, data: fileData });
+            pos += 46 + nameLen + extraLen + commentLen;
+        }
+        return entries;
+    }
+
+    // 下载 zip 资源包并解压到 /mythroad, 返回写入文件数 (失败返回 0, 不阻塞原流程)
+    async function extractResPackage(resUrl) {
+        setResStatus('正在下载资源包...');
+        if (typeof showToast === 'function') showToast('正在下载资源包...', 10000);
+
+        var data;
+        try {
+            data = await fetchArrayBuffer(resUrl);
+        } catch (e) {
+            setResStatus('资源包下载失败, 按原流程加载 (' + e.message + ')');
+            if (typeof showToast === 'function') showToast('资源包下载失败, 按原流程加载', 3500);
+            return 0;
+        }
+
+        // 校验 ZIP 魔数 (PK), 非 zip 内容忽略
+        if (!(data.length > 4 && data[0] === 0x50 && data[1] === 0x4B)) {
+            setResStatus('资源包不是有效的 zip 文件, 忽略该值');
+            if (typeof showToast === 'function') showToast('资源包不是有效的 zip 文件, 按原流程加载', 3500);
+            return 0;
+        }
+
+        var entries;
+        try {
+            entries = await parseZipEntries(data);
+        } catch (e) {
+            setResStatus('资源包解析失败, 按原流程加载 (' + e.message + ')');
+            if (typeof showToast === 'function') showToast('资源包解析失败, 按原流程加载', 3500);
+            return 0;
+        }
+
+        // 若所有条目都以 mythroad/ 开头, 去掉该层前缀 (避免解压成 /mythroad/mythroad)
+        var allMythroadPrefix = entries.length > 0;
+        for (var c = 0; c < entries.length; c++) {
+            var sn = sanitizeZipEntryName(entries[c].name);
+            if (!sn || sn.indexOf('mythroad/') !== 0) { allMythroadPrefix = false; break; }
+        }
+        if (allMythroadPrefix) {
+            for (var c2 = 0; c2 < entries.length; c2++) {
+                entries[c2].name = entries[c2].name.replace(/\\/g, '/').substring('mythroad/'.length);
+            }
+        }
+
+        ensureDir('/mythroad');
+        var written = 0;
+        try {
+            for (var w = 0; w < entries.length; w++) {
+                var safe = sanitizeZipEntryName(entries[w].name);
+                if (!safe) continue;
+                var target = '/mythroad/' + safe;
+                var parent = target.substring(0, target.lastIndexOf('/'));
+                ensureDir(parent);
+                FS.writeFile(target, entries[w].data);
+                fileSizes[target] = entries[w].data.length;
+                // 持久化到 IndexedDB, 刷新页面后资源仍然可用
+                saveToStorage(target, entries[w].data);
+                written++;
+            }
+        } catch (e) {
+            setResStatus('资源包写入失败, 按原流程加载 (' + e.message + ')');
+            if (typeof showToast === 'function') showToast('资源包写入失败, 按原流程加载', 3500);
+            return written;
+        }
+
+        setResStatus('资源包导入完成: ' + written + ' 个文件');
+        if (typeof showToast === 'function') showToast('资源包导入完成: ' + written + ' 个文件', 3500);
+        return written;
+    }
+
     function runWithFS() {
         var dirs = [
             "/mythroad",
@@ -664,18 +861,32 @@ var Module = typeof Module !== 'undefined' ? Module : {};
             }
         }
         function onAllFilesDone() {
-            var safetyTimer = setTimeout(function () {
-                console.warn('[vmrp-save] loadExtraSavesAsync 超时, 强制启动运行时');
-                removeDep();
-            }, 5000);
+            // ---- res=<url.zip> 资源包: 先下载解压到 /mythroad, 再继续原加载流程 ----
+            // res 值不是 zip 文件时忽略, 按原流程加载
+            var resUrl = GetQueryString('res');
+            var resPromise = Promise.resolve(0);
+            if (resUrl) {
+                if (isZipUrl(resUrl)) {
+                    resPromise = extractResPackage(resUrl);
+                } else {
+                    console.warn('[vmrp-res] res 参数不是 zip 文件, 忽略: ' + resUrl);
+                }
+            }
 
-            loadExtraSavesAsync().then(function () {
-                clearTimeout(safetyTimer);
-                removeDep();
-                console.log('[vmrp-save] 文件加载完成');
+            resPromise.then(function () {
+                var safetyTimer = setTimeout(function () {
+                    console.warn('[vmrp-save] loadExtraSavesAsync 超时, 强制启动运行时');
+                    removeDep();
+                }, 5000);
+
+                return loadExtraSavesAsync().then(function () {
+                    clearTimeout(safetyTimer);
+                    console.log('[vmrp-save] 文件加载完成');
+                });
             }).catch(function (e) {
-                clearTimeout(safetyTimer);
-                console.warn('[vmrp-save] 加载额外存档失败: ' + e.message);
+                console.warn('[vmrp-res] 资源包处理失败: ' + e.message);
+            }).then(function () {
+                // 无论成功失败都移除运行依赖, 保证模拟器能启动
                 removeDep();
             });
         }
@@ -983,6 +1194,14 @@ var Module = typeof Module !== 'undefined' ? Module : {};
 
     window.vmrpBuildZip = function (entries) {
         return buildZip(entries);
+    };
+
+    // res 资源包调试辅助
+    window.vmrpParseZipEntries = function (u8) {
+        return parseZipEntries(u8);
+    };
+    window.vmrpSanitizeZipEntryName = function (name) {
+        return sanitizeZipEntryName(name);
     };
 
 })();

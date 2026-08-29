@@ -15,6 +15,102 @@ var Module = typeof Module !== 'undefined' ? Module : {};
     var serverPath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1) + 'fs/';
 
     /* ====================================================================
+     * PWA File Handling API — 支持安装为 PWA 后用系统"打开方式"打开本地 mrp 文件
+     *
+     * 原理: manifest.json 中注册 file_handlers 后, 系统用本应用打开 .mrp 文件时,
+     * 浏览器会通过 window.launchQueue 把文件句柄传进来。
+     * 这里在脚本解析阶段(尽可能早)就注册 consumer, 读取第一个 mrp 文件的数据,
+     * 然后在 preRun 加载 dsm_gm.mrp 时直接把数据写入 FS(等同 ?f= 的自动运行机制,
+     * 且同样不持久化到 IndexedDB), 模拟器启动后即自动运行该 mrp。
+     * ==================================================================== */
+
+    var launchFilePromise = null;   // 等待启动文件的 Promise (resolve {name,data} 或 null)
+    var launchFileResolve = null;
+    var launchFileSettled = false;  // preRun 等待是否已结束 (超时或已消费)
+
+    function launchToast(msg) {
+        if (typeof window.showToast === 'function') window.showToast(msg, 3500);
+        console.log('[vmrp-launch] ' + msg);
+    }
+
+    (function initLaunchQueue() {
+        if (!('launchQueue' in window) || typeof window.launchQueue.setConsumer !== 'function') {
+            return; // 浏览器不支持 File Handling API
+        }
+        // 仅在安装为 PWA (standalone) 运行时才让 preRun 等待启动文件,
+        // 普通浏览器标签页不可能有文件启动, 不等待以免拖慢加载
+        var isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+                           window.navigator.standalone === true;
+        if (isStandalone) {
+            launchFilePromise = new Promise(function (resolve) {
+                launchFileResolve = resolve;
+            });
+        }
+        window.launchQueue.setConsumer(async function (launchParams) {
+            var result = null;
+            try {
+                if (launchParams.files && launchParams.files.length > 0) {
+                    // 多个文件时只处理第一个
+                    var handle = launchParams.files[0];
+                    var file = await handle.getFile();
+                    if (/\.mrp$/i.test(file.name)) {
+                        var buf = new Uint8Array(await file.arrayBuffer());
+                        result = { name: file.name, data: buf };
+                        console.log('[vmrp-launch] 收到本地 mrp 文件: ' + file.name + ' (' + buf.length + ' 字节)');
+                    } else {
+                        launchToast('不支持的文件类型: ' + file.name + ' (仅支持 .mrp)');
+                    }
+                }
+            } catch (e) {
+                console.warn('[vmrp-launch] 读取启动文件失败: ' + e.message);
+            }
+            if (launchFileResolve && !launchFileSettled) {
+                // preRun 还在等待: 交给 dsm_gm.mrp 加载流程, 启动后自动运行
+                launchFileResolve(result);
+                launchFileResolve = null;
+            } else if (result) {
+                // 模拟器已经(或即将)按正常流程启动: 退化为导入文件
+                handleLateLaunchFile(result);
+            }
+        });
+    })();
+
+    // 等待启动文件, 最多 timeoutMs 毫秒 (正常启动时 consumer 通常在几十毫秒内触发)
+    function waitLaunchFile(timeoutMs) {
+        return Promise.race([
+            launchFilePromise,
+            new Promise(function (resolve) { setTimeout(function () { resolve(null); }, timeoutMs); })
+        ]).then(function (r) {
+            launchFileSettled = true;
+            return r;
+        });
+    }
+
+    // 启动文件来得太晚 (模拟器已按正常流程启动): 写入 /mythroad 作为普通导入
+    function handleLateLaunchFile(result) {
+        function doWrite() {
+            try {
+                FS.writeFile('/mythroad/' + result.name, result.data);
+                launchToast('已导入 ' + result.name + ', 请在模拟器列表中打开');
+            } catch (e) {
+                console.warn('[vmrp-launch] 导入失败: ' + e.message);
+            }
+        }
+        if (typeof FS !== 'undefined' && !skipSync) {
+            doWrite();
+        } else {
+            // FS 尚未就绪, 等 postRun 之后再写
+            var timer = setInterval(function () {
+                if (typeof FS !== 'undefined' && !skipSync) {
+                    clearInterval(timer);
+                    doWrite();
+                }
+            }, 500);
+            setTimeout(function () { clearInterval(timer); }, 30000);
+        }
+    }
+
+    /* ====================================================================
      * IndexedDB 存储模块 (存文件数据, 无容量限制)
      * ==================================================================== */
 
@@ -454,6 +550,9 @@ var Module = typeof Module !== 'undefined' ? Module : {};
     }
 
     async function clearAllSaves() {
+        // 先统计实际存档数量 (在清除之前读取 IndexedDB 中的文件路径)
+        var savedPaths = await getStoragePaths();
+
         await clearStorageAll();
 
         localStorage.removeItem(SAVE_INDEX_KEY);
@@ -466,8 +565,8 @@ var Module = typeof Module !== 'undefined' ? Module : {};
 
         fileSizes = {};
         savesCleared = true;
-        console.log('[vmrp-save] 已清除所有存档文件 (IndexedDB)');
-        return oldIndex.length;
+        console.log('[vmrp-save] 已清除 ' + savedPaths.length + ' 个存档文件 (IndexedDB)');
+        return savedPaths.length;
     }
 
     function initFileSizes() {
@@ -606,6 +705,24 @@ var Module = typeof Module !== 'undefined' ? Module : {};
             }
             callback();
             return;
+        }
+
+        // PWA File Handling: 系统"打开方式"传入的本地 mrp 文件
+        // 直接写入 dsm_gm.mrp 位置 (与 ?f= 相同的自动运行机制, 不持久化)
+        if (name === 'dsm_gm.mrp' && launchFilePromise) {
+            var lf = await waitLaunchFile(2000);
+            if (lf) {
+                urlParamFile = v; // 标记为临时文件, 不同步到 IndexedDB
+                try {
+                    FS.writeFile(v, lf.data);
+                    fileSizes[v] = lf.data.length;
+                    console.log('[vmrp-launch] 本地文件 ' + lf.name + ' 已载入, 启动后自动运行');
+                } catch (e) {
+                    console.warn('[vmrp-launch] 写入失败 ' + v + ': ' + e.message);
+                }
+                callback();
+                return;
+            }
         }
 
         // 统一加载: IndexedDB -> 服务器
@@ -803,7 +920,9 @@ var Module = typeof Module !== 'undefined' ? Module : {};
         }
 
         if (entries.length === 0) {
-            alert('没有可下载的文件');
+            if (typeof showToast === 'function') {
+                showToast('没有可下载的文件');
+            }
             return 0;
         }
 
