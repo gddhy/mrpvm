@@ -1962,6 +1962,11 @@
                 if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
                 console.error(text);
             },
+            // MRP 程序在主循环内调用 exit() 退出时, Emscripten runIter 会捕获 ExitStatus
+            // (该异常到不了 window.onerror), 通过此钩子弹出"Mrp程序已退出"提示
+            onMrpExit: function (status) {
+                if (typeof showMrpExitDialog === 'function') showMrpExitDialog();
+            },
             canvas: (function () {
                 var canvas = document.getElementById('canvas');
 
