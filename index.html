@@ -792,6 +792,17 @@
             </div>
         </div>
     </div>
+    <!-- MRP 程序退出弹窗 -->
+    <div id="mrpExitDialog" class="confirm-overlay" style="display:none;">
+        <div class="confirm-box">
+            <div id="mrpExitDialogTitle" class="confirm-title">Mrp程序已退出</div>
+            <div id="mrpExitDialogBody" class="confirm-body"></div>
+            <div class="confirm-actions">
+                <button id="mrpExitRelaunch" class="confirm-btn" style="display:none;">重新运行当前Mrp</button>
+                <button id="mrpExitAppList" class="confirm-btn confirm-primary">打开应用列表</button>
+            </div>
+        </div>
+    </div>
     <!-- 文件管理器 -->
     <div id="fileManager" class="fm-overlay" style="display:none;">
         <div class="fm-modal">
@@ -995,6 +1006,80 @@
                 // 点击遮罩关闭
                 overlay.onclick = function (e) { if (e.target === overlay) done(false); };
             });
+        }
+
+        // ---- MRP 程序退出弹窗 ----
+        // 在 window.onerror 中调用: 用户退出网页内 mrp 程序或 mrp 正常/异常退出时,
+        // 弹出提示并允许"打开应用列表"(回到默认 dsm_gm.mrp 列表程序) 或
+        // "重新运行当前Mrp"(通过 ?f= 链接或 PWA launchQueue 打开的外部 mrp)。
+        var mrpExitDialogShown = false;
+        // message: 自定义正文 (如 ?f= 加载失败提示), 缺省为"程序已退出"
+        // title  : 自定义标题, 缺省为 "Mrp程序已退出"
+        function showMrpExitDialog(message, title) {
+            var overlay = document.getElementById('mrpExitDialog');
+            if (!overlay || mrpExitDialogShown) return;
+            mrpExitDialogShown = true;
+
+            var titleEl = document.getElementById('mrpExitDialogTitle');
+            var bodyEl = document.getElementById('mrpExitDialogBody');
+            var relaunchBtn = document.getElementById('mrpExitRelaunch');
+            var appListBtn = document.getElementById('mrpExitAppList');
+
+            // 检测是否正在运行外部 mrp: 1) URL ?f= 参数  2) PWA launchQueue 传入 (fs.js 记录)
+            var urlFile = GetQueryString('f');
+            var relaunchable = !!(urlFile || window.vmrpRelaunchSaved);
+
+            // 显示当前程序名: 优先使用 ?title= 参数传入的名称, 不存在时再取 f= 携带的文件名
+            var fileName = null;
+            var titleParam = GetQueryString('title');
+            if (titleParam) {
+                fileName = titleParam;
+            } else if (urlFile) {
+                var m = String(urlFile).replace(/\\/g, '/').match(/[^/?#]+$/);
+                fileName = m ? m[0] : urlFile;
+            } else if (window.vmrpLaunchFileName) {
+                fileName = window.vmrpLaunchFileName;
+            }
+
+            if (titleEl) {
+                titleEl.textContent = title || 'Mrp程序已退出';
+            }
+            if (bodyEl) {
+                bodyEl.textContent = message || ('当前运行的 MRP 程序已退出。' +
+                    (fileName ? '\n程序: ' + fileName : '') +
+                    '\n\n请选择下一步操作:');
+            }
+            if (relaunchBtn) {
+                relaunchBtn.style.display = relaunchable ? '' : 'none';
+                relaunchBtn.onclick = function () {
+                    overlay.style.display = 'none';
+                    vmrpRerunCurrentMrp();
+                };
+            }
+            if (appListBtn) {
+                appListBtn.onclick = function () {
+                    overlay.style.display = 'none';
+                    vmrpOpenAppList();
+                };
+            }
+            overlay.style.display = 'flex';
+            if (relaunchable && relaunchBtn) relaunchBtn.focus();
+            else if (appListBtn) appListBtn.focus();
+        }
+
+        // 打开应用列表: 清除外部 mrp 痕迹, 重新打开模拟器网页运行默认 dsm_gm.mrp 列表程序
+        function vmrpOpenAppList() {
+            try {
+                sessionStorage.removeItem('vmrp_launch_file');       // 清除 PWA 启动文件记录
+                sessionStorage.setItem('vmrp_skip_launch_wait', '1'); // 跳转后不再等待系统启动事件
+            } catch (e) { }
+            var hash = window.location.hash || '';
+            window.location.href = window.location.pathname + hash;
+        }
+
+        // 重新运行当前 mrp: ?f= 场景刷新 URL 即恢复; launchQueue 场景由 fs.js 从 sessionStorage 恢复
+        function vmrpRerunCurrentMrp() {
+            window.location.reload();
         }
 
         var toggleVConsoleBtn = document.getElementById('toggleVConsole');
@@ -1922,9 +2007,17 @@
             }
         };
         Module.setStatus('下载中...');
-        window.onerror = function (event) {
-            // TODO: do not warn on ok events like simulating an infinite loop or exitStatus
-            Module.setStatus('模拟器异常，请刷新网页或查看日志 ');
+        window.onerror = function (event, source, lineno, colno, error) {
+            // 用户退出网页内 mrp 程序、mrp 正常/异常退出时才会执行到这里
+            // (mrp 调用 exit/abort 时, Emscripten 抛出的异常会直达 window.onerror)。
+            // 模拟器尚未加载完成前的脚本错误仍按原逻辑提示刷新网页。
+            var mainEl = document.getElementById('main');
+            var mrpStarted = !!(mainEl && mainEl.classList.contains('loaded'));
+            if (mrpStarted && typeof showMrpExitDialog === 'function') {
+                showMrpExitDialog();
+            } else {
+                Module.setStatus('模拟器异常，请刷新网页或查看日志 ');
+            }
             Module.setStatus = function (text) {
                 if (text) Module.printErr('[post-exception status] ' + text);
             };

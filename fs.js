@@ -15,6 +15,32 @@ var Module = typeof Module !== 'undefined' ? Module : {};
     var serverPath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1) + 'fs/';
 
     /* ====================================================================
+     * 外部 mrp 运行状态 (供 index.html 的退出弹窗判断"重新运行当前Mrp"是否可用)
+     *   vmrpExternalRun   : 是否正在运行外部 mrp (?f= 链接调用 或 PWA launchQueue 传入)
+     *   vmrpLaunchFileName: 当前外部 mrp 的文件名 (launchQueue 场景)
+     *   vmrpRelaunchSaved : launchQueue 文件是否已记录到 sessionStorage, 可支持重新运行
+     * ==================================================================== */
+    window.vmrpExternalRun = false;
+    window.vmrpLaunchFileName = null;
+    window.vmrpRelaunchSaved = false;
+
+    // 页面加载类型: 刷新(reload)时系统不会再次触发 launchQueue, 无需等待启动文件
+    var isPageReload = false;
+    try {
+        var navEntries = performance.getEntriesByType('navigation');
+        if (navEntries.length > 0) isPageReload = (navEntries[0].type === 'reload');
+    } catch (e) { /* 忽略 */ }
+
+    // "打开应用列表"跳转前设置的标记: 页面内导航同样不会触发系统启动事件
+    var skipLaunchWait = false;
+    try {
+        if (sessionStorage.getItem('vmrp_skip_launch_wait') === '1') {
+            skipLaunchWait = true;
+            sessionStorage.removeItem('vmrp_skip_launch_wait');
+        }
+    } catch (e) { /* 忽略 */ }
+
+    /* ====================================================================
      * PWA File Handling API — 支持安装为 PWA 后用系统"打开方式"打开本地 mrp 文件
      *
      * 原理: manifest.json 中注册 file_handlers 后, 系统用本应用打开 .mrp 文件时,
@@ -64,6 +90,10 @@ var Module = typeof Module !== 'undefined' ? Module : {};
             } catch (e) {
                 console.warn('[vmrp-launch] 读取启动文件失败: ' + e.message);
             }
+            // 本次系统启动未携带 mrp 文件: 清除旧的"重新运行"记录, 避免误恢复
+            if (!result) {
+                clearRelaunchFile();
+            }
             if (launchFileResolve && !launchFileSettled) {
                 // preRun 还在等待: 交给 dsm_gm.mrp 加载流程, 启动后自动运行
                 launchFileResolve(result);
@@ -107,6 +137,63 @@ var Module = typeof Module !== 'undefined' ? Module : {};
                 }
             }, 500);
             setTimeout(function () { clearInterval(timer); }, 30000);
+        }
+    }
+
+    /* ====================================================================
+     * "重新运行当前Mrp"支持 — 记录 launchQueue 传入的外部 mrp 到 sessionStorage
+     *
+     * ?f= 场景下, 刷新 URL 即可重新运行; 但 PWA launchQueue 场景下刷新页面
+     * 不会再次触发系统启动事件, 因此把文件数据暂存到 sessionStorage
+     * (仅当前标签页有效, 关闭即清除), 页面重载后由 preRun 恢复并自动运行。
+     * ==================================================================== */
+
+    var RELAUNCH_KEY = 'vmrp_launch_file';
+
+    function arrayToBase64(u8) {
+        var bin = '';
+        var CHUNK = 0x8000;
+        for (var i = 0; i < u8.length; i += CHUNK) {
+            bin += String.fromCharCode.apply(null, u8.subarray(i, i + CHUNK));
+        }
+        return btoa(bin);
+    }
+
+    function base64ToArray(b64) {
+        var bin = atob(b64);
+        var u8 = new Uint8Array(bin.length);
+        for (var i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+        return u8;
+    }
+
+    // 记录当前外部 mrp, 供"重新运行当前Mrp"使用; 成功返回 true (存储超限等失败返回 false)
+    function saveRelaunchFile(info) {
+        try {
+            sessionStorage.setItem(RELAUNCH_KEY, JSON.stringify({
+                name: info.name,
+                data: arrayToBase64(info.data)
+            }));
+            return true;
+        } catch (e) {
+            console.warn('[vmrp-launch] 记录重新运行文件失败: ' + e.message);
+            return false;
+        }
+    }
+
+    function clearRelaunchFile() {
+        try { sessionStorage.removeItem(RELAUNCH_KEY); } catch (e) { }
+    }
+
+    // 读取"重新运行"记录, 返回 {name, data} 或 null
+    function getRelaunchFile() {
+        try {
+            var raw = sessionStorage.getItem(RELAUNCH_KEY);
+            if (!raw) return null;
+            var obj = JSON.parse(raw);
+            if (!obj || !obj.name || !obj.data) return null;
+            return { name: obj.name, data: base64ToArray(obj.data) };
+        } catch (e) {
+            return null;
         }
     }
 
@@ -841,6 +928,7 @@ var Module = typeof Module !== 'undefined' ? Module : {};
         var dsm_gm = GetQueryString('f');
         if (dsm_gm) {
             urlParamFile = '/mythroad/dsm_gm.mrp';
+            window.vmrpExternalRun = true; // 外部链接 ?f= 调用
         }
 
         // 添加运行依赖, 防止 Emscripten 在文件加载完成前启动
@@ -900,6 +988,28 @@ var Module = typeof Module !== 'undefined' ? Module : {};
         }
     }
 
+    // ?f= 外部文件加载失败: 弹窗提示"打开应用列表 / 重新运行当前Mrp", 避免黑屏等待
+    // 此时模拟器尚未启动, 直接调用 index.html 暴露的 showMrpExitDialog(message, title)
+    function notifyUrlLoadFailed(v, e) {
+        var fileName = null;
+        try {
+            var urlFile = String(GetQueryString('f') || '').replace(/\\/g, '/').match(/[^/?#]+$/);
+            fileName = urlFile ? urlFile[0] : (v ? v.split('/').pop() : '');
+        } catch (e2) { /* 忽略 */ }
+        var msg = '外部 MRP 文件加载失败。' +
+            (fileName ? '\n程序: ' + fileName : '') +
+            (e && e.message ? '\n原因: ' + e.message : '') +
+            '\n\n请选择下一步操作:';
+        console.warn('[vmrp-save] ' + msg);
+        try {
+            if (typeof window.showMrpExitDialog === 'function') {
+                window.showMrpExitDialog(msg, 'MRP 程序加载失败');
+            } else {
+                alert(msg);
+            }
+        } catch (e2) { /* 忽略 */ }
+    }
+
     // 异步加载单个文件
     async function loadFileAsync(v, dsm_gm, callback) {
         var name = v.substring(v.lastIndexOf('/') + 1);
@@ -913,6 +1023,10 @@ var Module = typeof Module !== 'undefined' ? Module : {};
                 fileSizes[v] = data.length;
             } catch (e) {
                 console.warn('[vmrp-save] URL 文件加载失败 ' + v + ': ' + e.message);
+                // ?f= 文件加载失败: 直接弹窗提示"打开应用列表 / 重新运行当前Mrp",
+                // 且不调用 callback() — 运行依赖不释放, 模拟器不会启动, 避免黑屏等待
+                notifyUrlLoadFailed(v, e);
+                return;
             }
             callback();
             return;
@@ -921,7 +1035,11 @@ var Module = typeof Module !== 'undefined' ? Module : {};
         // PWA File Handling: 系统"打开方式"传入的本地 mrp 文件
         // 直接写入 dsm_gm.mrp 位置 (与 ?f= 相同的自动运行机制, 不持久化)
         if (name === 'dsm_gm.mrp' && launchFilePromise) {
-            var lf = await waitLaunchFile(2000);
+            var lf = null;
+            // 刷新/应用列表跳转不会触发新的系统启动事件, 无需等待 launchQueue
+            if (!isPageReload && !skipLaunchWait) {
+                lf = await waitLaunchFile(2000);
+            }
             if (lf) {
                 urlParamFile = v; // 标记为临时文件, 不同步到 IndexedDB
                 try {
@@ -931,6 +1049,26 @@ var Module = typeof Module !== 'undefined' ? Module : {};
                 } catch (e) {
                     console.warn('[vmrp-launch] 写入失败 ' + v + ': ' + e.message);
                 }
+                window.vmrpExternalRun = true;
+                window.vmrpLaunchFileName = lf.name;
+                window.vmrpRelaunchSaved = saveRelaunchFile(lf);
+                callback();
+                return;
+            }
+            // 没有新的系统启动文件: 若是"重新运行当前Mrp"重载的页面, 从 sessionStorage 恢复
+            var relaunch = getRelaunchFile();
+            if (relaunch) {
+                urlParamFile = v;
+                try {
+                    FS.writeFile(v, relaunch.data);
+                    fileSizes[v] = relaunch.data.length;
+                    console.log('[vmrp-launch] 恢复外部文件 ' + relaunch.name + ' (重新运行当前Mrp)');
+                } catch (e) {
+                    console.warn('[vmrp-launch] 恢复写入失败 ' + v + ': ' + e.message);
+                }
+                window.vmrpExternalRun = true;
+                window.vmrpLaunchFileName = relaunch.name;
+                window.vmrpRelaunchSaved = true;
                 callback();
                 return;
             }
