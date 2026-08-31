@@ -2015,13 +2015,20 @@
         window.onerror = function (event, source, lineno, colno, error) {
             // 用户退出网页内 mrp 程序、mrp 正常/异常退出时才会执行到这里
             // (mrp 调用 exit/abort 时, Emscripten 抛出的异常会直达 window.onerror)。
-            // 模拟器尚未加载完成前的脚本错误仍按原逻辑提示刷新网页。
+            // 模拟器尚未加载完成前的脚本错误: 弹窗提示"模拟器加载失败"。
             var mainEl = document.getElementById('main');
             var mrpStarted = !!(mainEl && mainEl.classList.contains('loaded'));
             if (mrpStarted && typeof showMrpExitDialog === 'function') {
                 showMrpExitDialog();
+            } else if (typeof showMrpExitDialog === 'function') {
+                // 加载阶段错误: 复用退出弹窗, 提示加载失败
+                showMrpExitDialog('模拟器加载失败，请刷新网页。\n\n请选择下一步操作:', '模拟器加载失败');
             } else {
+                // 极端情况 (弹窗函数不可用): 状态条 + toast 同时提示
                 Module.setStatus('模拟器异常，请刷新网页或查看日志 ');
+                if (typeof showToast === 'function') {
+                    showToast('模拟器异常，请刷新网页', 4000);
+                }
             }
             Module.setStatus = function (text) {
                 if (text) Module.printErr('[post-exception status] ' + text);
