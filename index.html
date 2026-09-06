@@ -317,6 +317,9 @@
         #fileMgr { border-color: rgba(88,166,255,0.25); background: rgba(88,166,255,0.1); color: var(--accent); }
         #fileMgr:active { background: rgba(88,166,255,0.2); }
 
+        #screenshot { border-color: rgba(34,211,238,0.25); background: rgba(34,211,238,0.1); color: #22d3ee; }
+        #screenshot:active { background: rgba(34,211,238,0.2); }
+
         /* ---- 文件管理器 ---- */
         .fm-overlay {
             position: fixed; top: 0; left: 0; right: 0; bottom: 0;
@@ -478,6 +481,23 @@
         .confirm-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
         .confirm-primary { background: var(--accent); color: #fff; border: none; }
         .confirm-danger { background: var(--danger); color: #fff; border: none; }
+
+        /* ---- 截屏预览弹窗 ---- */
+        .shot-preview {
+            padding: 8px 18px 14px;
+            display: flex;
+            justify-content: center;
+            background: var(--bg-2);
+        }
+        #screenshotImg {
+            display: block;
+            max-width: 100%;
+            max-height: 55vh;
+            image-rendering: pixelated;
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-sm);
+            background: #000;
+        }
 
         /* ---- 吐司提示 ---- */
         .toast {
@@ -761,6 +781,7 @@
                     <input type="button" id="toggleVConsole" value="调试控制台" />
                     <input type="button" id="toggleAA" value="抗锯齿" />
                     <input type="button" id="toggleKeymap" value="虚拟键盘" />
+                    <input type="button" id="screenshot" value="截屏" />
                 </div>
             </div>
         </details>
@@ -789,6 +810,19 @@
             <div class="confirm-actions">
                 <button id="confirmDialogCancel" class="confirm-btn">取消</button>
                 <button id="confirmDialogOk" class="confirm-btn confirm-danger">确定</button>
+            </div>
+        </div>
+    </div>
+    <!-- 截屏预览弹窗 -->
+    <div id="screenshotDialog" class="confirm-overlay" style="display:none;">
+        <div class="confirm-box">
+            <div class="confirm-title">截屏预览</div>
+            <div id="screenshotPreview" class="shot-preview">
+                <img id="screenshotImg" alt="截屏图片">
+            </div>
+            <div class="confirm-actions">
+                <button id="screenshotCancel" class="confirm-btn">取消</button>
+                <button id="screenshotDownload" class="confirm-btn confirm-primary">下载</button>
             </div>
         </div>
     </div>
@@ -956,6 +990,88 @@
             if (window.vmrpDownloadAll) {
                 window.vmrpDownloadAll();
             }
+        });
+
+        // ---- 截屏按钮 ----
+        var screenshotBtn = document.getElementById('screenshot');
+        var screenshotDialog = document.getElementById('screenshotDialog');
+        var screenshotImg = document.getElementById('screenshotImg');
+        var screenshotCancel = document.getElementById('screenshotCancel');
+        var screenshotDownload = document.getElementById('screenshotDownload');
+        var lastScreenshotData = null;
+
+        function closeScreenshotDialog() {
+            screenshotDialog.style.display = 'none';
+            lastScreenshotData = null;
+            screenshotImg.src = '';
+        }
+
+        screenshotCancel.addEventListener('click', closeScreenshotDialog);
+
+        // 点击遮罩空白处关闭
+        screenshotDialog.addEventListener('click', function (ev) {
+            if (ev.target === screenshotDialog) closeScreenshotDialog();
+        });
+
+        function pad2(n) { return (n < 10 ? '0' : '') + n; }
+
+        function screenshotTimestamp() {
+            var d = new Date();
+            return d.getFullYear() + pad2(d.getMonth() + 1) + pad2(d.getDate())
+                + '_' + pad2(d.getHours()) + pad2(d.getMinutes()) + pad2(d.getSeconds());
+        }
+
+        screenshotDownload.addEventListener('click', function () {
+            if (!lastScreenshotData) return;
+            var a = document.createElement('a');
+            a.href = lastScreenshotData;
+            a.download = 'vmrp_screenshot_' + screenshotTimestamp() + '.png';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            showToast('截屏已保存: ' + a.download);
+            closeScreenshotDialog();
+        });
+
+        screenshotBtn.addEventListener('click', function () {
+            if (typeof canvas === 'undefined' || !canvas) {
+                showToast('模拟器尚未加载完成，请稍后再试');
+                return;
+            }
+            if (!canvas.width || !canvas.height) {
+                showToast('当前画面为空，无法截屏');
+                return;
+            }
+            // WebGL 默认不保留绘图缓冲区(preserveDrawingBuffer)，
+            // 需在 requestAnimationFrame 回调中(合成前)读取，才能得到完整画面
+            requestAnimationFrame(function () {
+                var dataUrl = null;
+                try {
+                    dataUrl = canvas.toDataURL('image/png');
+                } catch (e) {
+                    dataUrl = null;
+                }
+                if (!dataUrl) {
+                    try {
+                        var off = document.createElement('canvas');
+                        off.width = canvas.width;
+                        off.height = canvas.height;
+                        var ctx = off.getContext('2d');
+                        ctx.drawImage(canvas, 0, 0);
+                        dataUrl = off.toDataURL('image/png');
+                    } catch (e) {
+                        showToast('截屏失败: ' + e.message);
+                        return;
+                    }
+                }
+                if (!dataUrl || dataUrl.length < 200) {
+                    showToast('截屏失败，请稍后再试');
+                    return;
+                }
+                lastScreenshotData = dataUrl;
+                screenshotImg.src = dataUrl;
+                screenshotDialog.style.display = 'flex';
+            });
         });
 
         // ---- vConsole 开关 ----
